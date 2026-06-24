@@ -11,6 +11,7 @@
     --line-total:#1f3a5f; --line-china:#7a2e2e; --line-korea:#9bb7d4;
     --bar-china:#9caf78; --bar-korea:#c7d2b0; --accent:#1f3a5f; --border:#d8d2c4;
     --q2:#9caf78; --q3:#d8a657; --q4:#7a9cc6; --other:#cdbf9a;
+    --mem-dram:#5b7aa5; --mem-nand:#c08552; --mem-hbm:#7a2e2e; --mem-mixed:#9a9384;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
@@ -104,10 +105,27 @@
     <div class="chart-box"><canvas id="barChart" height="110"></canvas></div>
   </div>
 
+  <!-- Memory end-market breakdown -->
+  <div class="panel">
+    <div class="panel-h">
+      <div class="t">Order book by memory end-market<span class="sub">inferred from customer · DRAM / NAND / HBM</span></div>
+    </div>
+    <div class="chart-box" style="display:grid;grid-template-columns:200px 1fr;gap:16px;align-items:center">
+      <canvas id="memChart" height="200"></canvas>
+      <div id="memTable"></div>
+    </div>
+    <div class="note">Memory type is <b>inferred from the counterparty</b>, not stated in DART filings (which only say "반도체 검사장비"). CXMT→DRAM, YMTC→NAND, SK Hynix→HBM, Unimos &amp; Yiling Trading→Mixed (DRAM/NAND, end-fab obscured by the trading intermediary). Edit the <code>mem</code> field per contract to refine.</div>
+  </div>
+
   <!-- Revenue recognition by quarter -->
   <div class="panel">
     <div class="panel-h">
       <div class="t">Recognized order-book revenue by quarter<span class="sub">when contracts convert to revenue (at delivery)</span></div>
+      <div class="ctrls">
+        <span style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">color by</span>
+        <span class="btn on" id="bySeg">segment</span>
+        <span class="btn" id="byMem">memory</span>
+      </div>
     </div>
     <div class="inputs">
       <div class="field">
@@ -193,28 +211,31 @@
             -> dashboard estimates it as order date + default lag.
    terms:   optional payment-terms note from the filing
    ========================================================================= */
+/* mem (end-market) is INFERRED FROM CUSTOMER — DART filings only say "반도체 검사장비",
+   they never name the product/SKU or memory type. Edit per contract if you have better info.
+   Default mapping: CXMT→DRAM, YMTC→NAND, SK Hynix→HBM, Unimos/Yiling→Mixed (DRAM/NAND). */
 const CONTRACTS = [
-  { date:"2025-06-26", party:"CXMT",                              seg:"China-localization", value:3.49,  delivery:"2025-07-25" },
-  { date:"2025-07-14", party:"CXMT",                              seg:"China-localization", value:3.52 },
-  { date:"2025-08-06", party:"CXMT",                              seg:"China-localization", value:5.69 },
-  { date:"2025-08-21", party:"CXMT",                              seg:"China-localization", value:1.10 },
-  { date:"2025-08-21", party:"CXMT",                              seg:"China-localization", value:5.83 },
-  { date:"2025-09-08", party:"YILING TRADING",                   seg:"China-localization", value:3.19 },
-  { date:"2025-09-08", party:"YILING TRADING",                   seg:"China-localization", value:4.99 },
-  { date:"2025-11-26", party:"YILING TRADING",                   seg:"China-localization", value:13.85, delivery:"2026-04-30", terms:"50% before shipment, 50% after final approval" },
-  { date:"2026-02-27", party:"Unimos Microelectronics (Wuhan)",  seg:"China-localization", value:3.30 },
-  { date:"2026-03-12", party:"YILING TRADING",                   seg:"China-localization", value:6.19 },
-  { date:"2026-03-13", party:"Unimos Microelectronics (Wuhan)",  seg:"China-localization", value:1.69 },
-  { date:"2026-03-17", party:"SK Hynix",                          seg:"Korea-HBM",          value:2.24 },
-  { date:"2026-03-20", party:"YILING TRADING",                   seg:"China-localization", value:3.85,  delivery:"2026-06-20" },
-  { date:"2026-03-25", party:"Unimos Microelectronics (Wuhan)",  seg:"China-localization", value:10.20 },
-  { date:"2026-04-29", party:"YILING TRADING",                   seg:"China-localization", value:3.83,  delivery:"2026-10-31" },
-  { date:"2026-05-13", party:"Unimos Microelectronics (Wuhan)",  seg:"China-localization", value:7.99,  delivery:"2026-08-30" },
-  { date:"2026-05-20", party:"SK Hynix",                          seg:"Korea-HBM",          value:2.64 },
-  { date:"2026-05-20", party:"SK Hynix",                          seg:"Korea-HBM",          value:3.96 },
-  { date:"2026-05-27", party:"Yangtze Memory Technologies (YMTC)",seg:"China-localization", value:3.58 },
-  { date:"2026-06-01", party:"YILING TRADING",                   seg:"China-localization", value:15.42, delivery:"2026-12-15" },
-  { date:"2026-06-15", party:"Yangtze Memory Technologies (YMTC)",seg:"China-localization", value:2.71 },
+  { date:"2025-06-26", party:"CXMT",                              seg:"China-localization", mem:"DRAM",  value:3.49,  delivery:"2025-07-25" },
+  { date:"2025-07-14", party:"CXMT",                              seg:"China-localization", mem:"DRAM",  value:3.52 },
+  { date:"2025-08-06", party:"CXMT",                              seg:"China-localization", mem:"DRAM",  value:5.69 },
+  { date:"2025-08-21", party:"CXMT",                              seg:"China-localization", mem:"DRAM",  value:1.10 },
+  { date:"2025-08-21", party:"CXMT",                              seg:"China-localization", mem:"DRAM",  value:5.83 },
+  { date:"2025-09-08", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:3.19 },
+  { date:"2025-09-08", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:4.99 },
+  { date:"2025-11-26", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:13.85, delivery:"2026-04-30", terms:"50% before shipment, 50% after final approval" },
+  { date:"2026-02-27", party:"Unimos Microelectronics (Wuhan)",  seg:"China-localization", mem:"Mixed", value:3.30 },
+  { date:"2026-03-12", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:6.19 },
+  { date:"2026-03-13", party:"Unimos Microelectronics (Wuhan)",  seg:"China-localization", mem:"Mixed", value:1.69 },
+  { date:"2026-03-17", party:"SK Hynix",                          seg:"Korea-HBM",          mem:"HBM",   value:2.24 },
+  { date:"2026-03-20", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:3.85,  delivery:"2026-06-20" },
+  { date:"2026-03-25", party:"Unimos Microelectronics (Wuhan)",  seg:"China-localization", mem:"Mixed", value:10.20 },
+  { date:"2026-04-29", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:3.83,  delivery:"2026-10-31" },
+  { date:"2026-05-13", party:"Unimos Microelectronics (Wuhan)",  seg:"China-localization", mem:"Mixed", value:7.99,  delivery:"2026-08-30" },
+  { date:"2026-05-20", party:"SK Hynix",                          seg:"Korea-HBM",          mem:"HBM",   value:2.64 },
+  { date:"2026-05-20", party:"SK Hynix",                          seg:"Korea-HBM",          mem:"HBM",   value:3.96 },
+  { date:"2026-05-27", party:"Yangtze Memory Technologies (YMTC)",seg:"China-localization", mem:"NAND",  value:3.58 },
+  { date:"2026-06-01", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:15.42, delivery:"2026-12-15" },
+  { date:"2026-06-15", party:"Yangtze Memory Technologies (YMTC)",seg:"China-localization", mem:"NAND",  value:2.71 },
 ];
 
 /* Quarterly ACTUALS from stockanalysis.com (KRW bn) — historical baseline. */
@@ -311,29 +332,33 @@ new Chart(document.getElementById("barChart"),{type:"bar",
 
 /* ===================== recognition model (interactive) ===================== */
 const el=id=>document.getElementById(id);
+const MEMS=["DRAM","NAND","HBM","Mixed"];
+const memColor=m=>C("--mem-"+m.toLowerCase());
 function deliveryDate(r,lag){return r.delivery || addMonths(r.date,lag);}
 function recognized(){
   const lag=Math.max(0,parseFloat(el("lagMonths").value)||0);
   const mode=el("recMode").value;
   const f=Math.min(1,Math.max(0,(parseFloat(el("splitAtOrder").value)||0)/100));
-  const byQ={};                          // quarter -> {seg sums}
+  const byQ={};                          // quarter -> {seg + mem sums}
   rows.forEach(r=>{
     r.delDate=deliveryDate(r,lag); r.est=!r.delivery; r.delQ=qOf(r.delDate);
-    const add=(q,v)=>{ (byQ[q]=byQ[q]||{China:0,Korea:0,total:0});
-      if(r.seg==="Korea-HBM")byQ[q].Korea+=v; else byQ[q].China+=v; byQ[q].total+=v; };
+    const add=(q,v)=>{
+      const b=byQ[q]=byQ[q]||{China:0,Korea:0,total:0,DRAM:0,NAND:0,HBM:0,Mixed:0};
+      if(r.seg==="Korea-HBM")b.Korea+=v; else b.China+=v;
+      b[r.mem||"Mixed"]+=v; b.total+=v; };
     if(mode==="split" && f>0){ add(qOf(r.date),r.value*f); add(r.delQ,r.value*(1-f)); }
     else { add(r.delQ,r.value); }
   });
   return byQ;
 }
-let recChart;
+let recChart, recColorBy="segment";
 function renderRec(byQ){
   const qs=Object.keys(byQ).sort(qSort);
   const labels=qs.map(qLabel);
-  const ds=[
-    {label:"China-localization",data:qs.map(q=>+byQ[q].China.toFixed(2)),backgroundColor:C("--bar-china")},
-    {label:"Korea-HBM",data:qs.map(q=>+byQ[q].Korea.toFixed(2)),backgroundColor:C("--bar-korea")},
-  ];
+  const ds = recColorBy==="memory"
+    ? MEMS.map(m=>({label:m,data:qs.map(q=>+(byQ[q][m]||0).toFixed(2)),backgroundColor:memColor(m)}))
+    : [{label:"China-localization",data:qs.map(q=>+byQ[q].China.toFixed(2)),backgroundColor:C("--bar-china")},
+       {label:"Korea-HBM",data:qs.map(q=>+byQ[q].Korea.toFixed(2)),backgroundColor:C("--bar-korea")}];
   if(!recChart){
     recChart=new Chart(el("recChart"),{type:"bar",data:{labels,datasets:ds},
       options:{responsive:true,maintainAspectRatio:true,
@@ -343,7 +368,7 @@ function renderRec(byQ){
           y:{stacked:true,grid:{color:C("--grid")},ticks:{color:C("--muted"),font:{size:10}},
             title:{display:true,text:"Recognized revenue (bn KRW)",color:C("--muted"),font:{size:10}}}}}});
   }else{
-    recChart.data.labels=labels; recChart.data.datasets[0].data=ds[0].data; recChart.data.datasets[1].data=ds[1].data;
+    recChart.data.labels=labels; recChart.data.datasets=ds;
     recChart.options.plugins.tooltip.callbacks.footer=items=>{const q=qs[items[0].dataIndex];return "Total: "+fmt(byQ[q].total,2)+" bn";};
     recChart.update();
   }
@@ -406,13 +431,15 @@ function renderPnl(byQ){
 
 /* ===================== contract table ===================== */
 function renderTable(){
-  const head=["Date","Counterparty","Segment","Value (bn)","Delivery","Rev. qtr","% of sales","% of mkt-cap","Impl. EPS","Cumulative"];
+  const head=["Date","Counterparty","Segment","Memory","Value (bn)","Delivery","Rev. qtr","% of sales","% of mkt-cap","Impl. EPS","Cumulative"];
   let html="<thead><tr>"+head.map(h=>`<th>${h}</th>`).join("")+"</tr></thead><tbody>";
   [...rows].reverse().forEach(r=>{
     const pill=r.seg==="Korea-HBM"?'seg-korea':'seg-china';
+    const m=r.mem||"Mixed";
     html+=`<tr>
       <td>${r.date}</td><td>${r.party}</td>
       <td><span class="seg-pill ${pill}">${r.seg}</span></td>
+      <td><span class="q-pill" style="background:${memColor(m)};color:#fff">${m}</span></td>
       <td>${fmt(r.value,2)}</td>
       <td>${r.delDate}${r.est?'<span class="est">est</span>':''}</td>
       <td><span class="q-pill">${qLabel(r.delQ)}</span></td>
@@ -420,6 +447,32 @@ function renderTable(){
       <td>${Math.round(r.eps)}</td><td>${fmt(r.cum,1)}</td></tr>`;
   });
   el("tbl").innerHTML=html+"</tbody>";
+}
+
+/* ===================== memory end-market doughnut (static) ===================== */
+function renderMem(){
+  const tot={DRAM:0,NAND:0,HBM:0,Mixed:0};
+  rows.forEach(r=>tot[r.mem||"Mixed"]+=r.value);
+  const order=MEMS.filter(m=>tot[m]>0);
+  const T=order.reduce((a,m)=>a+tot[m],0);
+  new Chart(el("memChart"),{
+    type:"doughnut",
+    data:{labels:order,datasets:[{data:order.map(m=>+tot[m].toFixed(2)),
+      backgroundColor:order.map(memColor),borderWidth:1.5,borderColor:"#fbfaf6"}]},
+    options:{
+      responsive:true,maintainAspectRatio:true,cutout:"56%",
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>c.label+": "+fmt(c.parsed)+" bn ("+(c.parsed/T*100).toFixed(0)+"%)"}}
+      }
+    }
+  });
+  el("memTable").innerHTML="<table><tbody>"+order.map(m=>
+    `<tr><td style="text-align:left;border:none;padding:5px 9px"><span class="swatch" style="background:${memColor(m)};margin-right:7px"></span>${m}</td>`+
+    `<td style="border:none;padding:5px 9px"><b>${fmt(tot[m])}</b> bn</td>`+
+    `<td style="border:none;padding:5px 9px;color:var(--muted)">${(tot[m]/T*100).toFixed(0)}%</td></tr>`).join("")+
+    `<tr><td style="text-align:left;border-top:1px solid var(--border);padding:5px 9px"><b>Total</b></td>`+
+    `<td style="border-top:1px solid var(--border);padding:5px 9px"><b>${fmt(T)}</b> bn</td><td style="border-top:1px solid var(--border)"></td></tr></tbody></table>`;
 }
 
 /* ===================== refresh orchestration ===================== */
@@ -433,6 +486,9 @@ function refresh(full=true){
 ["recMode","splitAtOrder","lagMonths","gmPct","sga","rnd","baseRev"].forEach(id=>{
   el(id).addEventListener("input",()=>refresh(false));
 });
+el("bySeg").onclick=()=>{recColorBy="segment";el("bySeg").classList.add("on");el("byMem").classList.remove("on");refresh(false);};
+el("byMem").onclick=()=>{recColorBy="memory";el("byMem").classList.add("on");el("bySeg").classList.remove("on");refresh(false);};
+renderMem();
 refresh(true);
 </script>
 </body>
