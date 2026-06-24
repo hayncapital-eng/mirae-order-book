@@ -131,22 +131,9 @@
     </div>
     <div class="inputs">
       <div class="field">
-        <label>Recognition method</label>
-        <select id="recMode">
-          <option value="delivery">100% at delivery (K-IFRS point-in-time)</option>
-          <option value="split">Split: % at order, rest at delivery</option>
-        </select>
-        <span class="hint">Equipment books at delivery/acceptance.</span>
-      </div>
-      <div class="field">
-        <label>% recognized at order (split mode)</label>
-        <input id="splitAtOrder" type="number" value="0" min="0" max="100" step="5">
-        <span class="hint">e.g. prepayment % if you model it as revenue.</span>
-      </div>
-      <div class="field">
         <label>Default delivery lag (months)</label>
-        <input id="lagMonths" type="number" value="3" min="0" max="12" step="1">
-        <span class="hint">For contracts without a confirmed DART delivery date.</span>
+        <input id="lagMonths" type="number" value="3.3" min="0" max="15" step="0.1">
+        <span class="hint">Revenue books <b>100% at delivery</b> (K-IFRS point-in-time). Order→delivery averaged <b>3.3 mo</b> across the 22 filed contracts (median 3.1, range ~1–6.5) — applied only to a contract with no confirmed DART delivery date.</span>
       </div>
     </div>
     <div class="chart-box"><div class="cw" style="height:260px"><canvas id="recChart"></canvas></div></div>
@@ -271,7 +258,6 @@ const CFG = { annualRevenueBn:50.8, marketCapBn:226, sharesM:4.5, netMargin:0.17
 /* ===================== helpers ===================== */
 const fmt=(n,d=1)=> (n==null||isNaN(n))?"–":n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
 function decYear(s){const dt=new Date(s+"T00:00:00Z");const a=Date.UTC(dt.getUTCFullYear(),0,1),b=Date.UTC(dt.getUTCFullYear()+1,0,1);return dt.getUTCFullYear()+(dt-a)/(b-a);}
-function addMonths(s,m){const dt=new Date(s+"T00:00:00Z");dt.setUTCMonth(dt.getUTCMonth()+m);return dt.toISOString().slice(0,10);}
 function qOf(s){const dt=new Date(s+"T00:00:00Z");const y=dt.getUTCFullYear();const q=Math.floor(dt.getUTCMonth()/3)+1;return y+"-Q"+q;}
 function qLabel(k){const[y,q]=k.split("-");return q+" "+y;}
 function qSort(a,b){return a<b?-1:a>b?1:0;}
@@ -354,20 +340,20 @@ new Chart(document.getElementById("barChart"),{type:"bar",
 const el=id=>document.getElementById(id);
 const MEMS=["DRAM","NAND","HBM","Mixed"];
 const memColor=m=>C("--mem-"+m.toLowerCase());
-function deliveryDate(r,lag){return r.delivery || addMonths(r.date,lag);}
-function recognized(){
+function deliveryDate(r,lagMonths){
+  if(r.delivery) return r.delivery;          // confirmed DART contract-period end
+  const dt=new Date(r.date+"T00:00:00Z");
+  dt.setUTCDate(dt.getUTCDate()+Math.round(lagMonths*30.44));
+  return dt.toISOString().slice(0,10);
+}
+function recognized(){                        // K-IFRS: 100% recognized at delivery
   const lag=Math.max(0,parseFloat(el("lagMonths").value)||0);
-  const mode=el("recMode").value;
-  const f=Math.min(1,Math.max(0,(parseFloat(el("splitAtOrder").value)||0)/100));
-  const byQ={};                          // quarter -> {seg + mem sums}
+  const byQ={};                               // quarter -> {seg + mem sums}
   rows.forEach(r=>{
     r.delDate=deliveryDate(r,lag); r.est=!r.delivery; r.delQ=qOf(r.delDate);
-    const add=(q,v)=>{
-      const b=byQ[q]=byQ[q]||{China:0,Korea:0,total:0,DRAM:0,NAND:0,HBM:0,Mixed:0};
-      if(r.seg==="Korea-HBM")b.Korea+=v; else b.China+=v;
-      b[r.mem||"Mixed"]+=v; b.total+=v; };
-    if(mode==="split" && f>0){ add(qOf(r.date),r.value*f); add(r.delQ,r.value*(1-f)); }
-    else { add(r.delQ,r.value); }
+    const b=byQ[r.delQ]=byQ[r.delQ]||{China:0,Korea:0,total:0,DRAM:0,NAND:0,HBM:0,Mixed:0};
+    if(r.seg==="Korea-HBM")b.Korea+=r.value; else b.China+=r.value;
+    b[r.mem||"Mixed"]+=r.value; b.total+=r.value;
   });
   return byQ;
 }
@@ -497,7 +483,7 @@ function refresh(){
   renderPnl(byQ);
   renderTable();
 }
-["recMode","splitAtOrder","lagMonths","gmPct","sga","rnd","baseAte","baseUplift","mai"].forEach(id=>{
+["lagMonths","gmPct","sga","rnd","baseAte","baseUplift","mai"].forEach(id=>{
   el(id).addEventListener("input",refresh);
 });
 el("bySeg").onclick=()=>{recColorBy="segment";el("bySeg").classList.add("on");el("byMem").classList.remove("on");refresh(false);};
