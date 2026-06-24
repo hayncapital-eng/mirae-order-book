@@ -175,9 +175,14 @@
         <span class="hint">Q1'26 actual ≈ 0.12.</span>
       </div>
       <div class="field">
-        <label>Base ATE per qtr (bn KRW)</label>
+        <label>Base ATE floor (bn KRW/qtr)</label>
         <input id="baseAte" type="number" value="5" min="0" step="0.5">
-        <span class="hint">Sub-threshold + domestic handler orders (H1'25 ran ~4.6).</span>
+        <span class="hint">Structural sub-threshold + domestic (H1'25 ran ~4.6 with ~0 contracts).</span>
+      </div>
+      <div class="field">
+        <label>+ ATE uplift (% of order book)</label>
+        <input id="baseUplift" type="number" value="0" min="0" max="100" step="5">
+        <span class="hint">Small/repeat China orders that scale with contract volume. Data is weak/lagged → default 0.</span>
       </div>
       <div class="field">
         <label>MAI per qtr (bn KRW)</label>
@@ -399,6 +404,7 @@ function renderPnl(byQ){
   const sga=parseFloat(el("sga").value)||0;
   const rnd=parseFloat(el("rnd").value)||0;
   const baseAte=parseFloat(el("baseAte").value)||0;
+  const upl=(parseFloat(el("baseUplift").value)||0)/100;
   const maiIn=parseFloat(el("mai").value)||0;
   const recQs=Object.keys(byQ);
   let qs=Array.from(new Set([...Object.keys(ACTUALS),...recQs])).filter(q=>q>="2025-Q1").sort(qSort);
@@ -410,8 +416,8 @@ function renderPnl(byQ){
       cols.push({q,label:qLabel(q),actual:true, ob, base:Math.max(0,a.ate-ob), ate:a.ate, mai:a.mai,
         rev:a.rev, gm:a.gm/100, sga:a.sga, rnd:a.rnd, op:a.op, gp:a.rev*a.gm/100});
     } else {
-      const ate=ob+baseAte, mai=maiIn, rev=ate+mai, gp=rev*gm, op=gp-sga-rnd;
-      cols.push({q,label:qLabel(q),actual:false, ob, base:baseAte, ate, mai, rev, gm, sga, rnd, gp, op});
+      const base=baseAte+upl*ob, ate=ob+base, mai=maiIn, rev=ate+mai, gp=rev*gm, op=gp-sga-rnd;
+      cols.push({q,label:qLabel(q),actual:false, ob, base, ate, mai, rev, gm, sga, rnd, gp, op});
     }
   });
   const fy=cols.filter(c=>c.q.startsWith("2026"));
@@ -491,7 +497,7 @@ function refresh(){
   renderPnl(byQ);
   renderTable();
 }
-["recMode","splitAtOrder","lagMonths","gmPct","sga","rnd","baseAte","mai"].forEach(id=>{
+["recMode","splitAtOrder","lagMonths","gmPct","sga","rnd","baseAte","baseUplift","mai"].forEach(id=>{
   el(id).addEventListener("input",refresh);
 });
 el("bySeg").onclick=()=>{recColorBy="segment";el("bySeg").classList.add("on");el("byMem").classList.remove("on");refresh(false);};
