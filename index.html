@@ -192,11 +192,12 @@
   </div>
 
   <div class="foot">
-    Order book compiled by hand from Mirae Corp (미래산업, KRX 025560) single-supply-contract
-    disclosures on DART. Delivery dates marked <span class="est">est</span> are derived from the
-    default lag (order date + N months) and are editable; the rest are confirmed from DART filings.
-    Derived columns and the P&amp;L model are illustrative, not company guidance. To log a new
-    filing, add one line to the <code>CONTRACTS</code> list in this file's source.
+    Order book pulled from Mirae Corp (미래산업, KRX 025560) single-supply-contract
+    disclosures on DART via <code>update_from_dart.py</code> — order date, amount, contract-period
+    end (delivery deadline) and payment terms are all from the filings. Any future contract without a
+    confirmed delivery date falls back to the editable lag and is marked <span class="est">est</span>.
+    Memory end-market is inferred from the customer (filings don't state it). Derived columns and the
+    P&amp;L model are illustrative, not company guidance.
   </div>
 </div>
 
@@ -211,35 +212,39 @@
             -> dashboard estimates it as order date + default lag.
    terms:   optional payment-terms note from the filing
    ========================================================================= */
-/* mem (end-market) is INFERRED FROM CUSTOMER — DART filings only say "반도체 검사장비",
-   they never name the product/SKU or memory type. Edit per contract if you have better info.
-   Default mapping: CXMT→DRAM, YMTC→NAND, SK Hynix→HBM, Unimos/Yiling→Mixed (DRAM/NAND). */
+/* All fields below are pulled from DART single-supply-contract filings via
+   update_from_dart.py (order date, contract amount, contract period END = delivery
+   deadline, payment terms). mem (end-market) is INFERRED FROM CUSTOMER — DART filings
+   only say "반도체 검사장비", never the SKU/memory type: CXMT→DRAM, YMTC→NAND,
+   SK Hynix→HBM, Unimos/Yiling→Mixed. date = 계약(수주)일자 (contract/order date). */
 const CONTRACTS = [
-  { date:"2025-06-26", party:"CXMT",                              seg:"China-localization", mem:"DRAM",  value:3.49,  delivery:"2025-07-25" },
-  { date:"2025-07-14", party:"CXMT",                              seg:"China-localization", mem:"DRAM",  value:3.52 },
-  { date:"2025-08-06", party:"CXMT",                              seg:"China-localization", mem:"DRAM",  value:5.69 },
-  { date:"2025-08-21", party:"CXMT",                              seg:"China-localization", mem:"DRAM",  value:1.10 },
-  { date:"2025-08-21", party:"CXMT",                              seg:"China-localization", mem:"DRAM",  value:5.83 },
-  { date:"2025-09-08", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:3.19 },
-  { date:"2025-09-08", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:4.99 },
-  { date:"2025-11-26", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:13.85, delivery:"2026-04-30", terms:"50% before shipment, 50% after final approval" },
-  { date:"2026-02-27", party:"Unimos Microelectronics (Wuhan)",  seg:"China-localization", mem:"Mixed", value:3.30 },
-  { date:"2026-03-12", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:6.19 },
-  { date:"2026-03-13", party:"Unimos Microelectronics (Wuhan)",  seg:"China-localization", mem:"Mixed", value:1.69 },
-  { date:"2026-03-17", party:"SK Hynix",                          seg:"Korea-HBM",          mem:"HBM",   value:2.24 },
-  { date:"2026-03-20", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:3.85,  delivery:"2026-06-20" },
-  { date:"2026-03-25", party:"Unimos Microelectronics (Wuhan)",  seg:"China-localization", mem:"Mixed", value:10.20 },
-  { date:"2026-04-29", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:3.83,  delivery:"2026-10-31" },
-  { date:"2026-05-13", party:"Unimos Microelectronics (Wuhan)",  seg:"China-localization", mem:"Mixed", value:7.99,  delivery:"2026-08-30" },
-  { date:"2026-05-20", party:"SK Hynix",                          seg:"Korea-HBM",          mem:"HBM",   value:2.64 },
-  { date:"2026-05-20", party:"SK Hynix",                          seg:"Korea-HBM",          mem:"HBM",   value:3.96 },
-  { date:"2026-05-27", party:"Yangtze Memory Technologies (YMTC)",seg:"China-localization", mem:"NAND",  value:3.58 },
-  { date:"2026-06-01", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:15.42, delivery:"2026-12-15" },
-  { date:"2026-06-15", party:"Yangtze Memory Technologies (YMTC)",seg:"China-localization", mem:"NAND",  value:2.71 },
+  { date:"2025-06-26", party:"CXMT",                              seg:"China-localization", mem:"DRAM",  value:3.49,  delivery:"2025-07-25", terms:"50% pre-ship / 50% post-approval" },
+  { date:"2025-07-14", party:"CXMT",                              seg:"China-localization", mem:"DRAM",  value:3.52,  delivery:"2025-08-22", terms:"50% pre-ship / 50% post-approval" },
+  { date:"2025-08-06", party:"CXMT",                              seg:"China-localization", mem:"DRAM",  value:5.69,  delivery:"2025-09-30", terms:"50% pre-ship / 50% post-approval" },
+  { date:"2025-08-21", party:"CXMT",                              seg:"China-localization", mem:"DRAM",  value:1.10,  delivery:"2025-08-31", terms:"parts contract (amended 2024 order)" },
+  { date:"2025-08-21", party:"CXMT",                              seg:"China-localization", mem:"DRAM",  value:5.83,  delivery:"2025-08-31", terms:"80% pre-delivery / 20% balance (amended 2024 order)" },
+  { date:"2025-09-08", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:4.99,  delivery:"2025-10-30", terms:"50% pre-ship / 50% post-approval" },
+  { date:"2025-09-08", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:3.19,  delivery:"2025-11-30", terms:"50% pre-ship / 50% post-approval" },
+  { date:"2025-11-26", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:13.85, delivery:"2026-04-30", terms:"50% pre-ship / 50% post-approval" },
+  { date:"2025-12-19", party:"Unimos Microelectronics (Wuhan)",  seg:"China-localization", mem:"Mixed", value:10.20, delivery:"2026-03-25", terms:"90% within 30d of arrival / 10% post-approval" },
+  { date:"2026-02-26", party:"Unimos Microelectronics (Wuhan)",  seg:"China-localization", mem:"Mixed", value:3.30,  delivery:"2026-06-30", terms:"90% within 30d of arrival / 10% post-approval" },
+  { date:"2026-03-12", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:6.19,  delivery:"2026-07-25", terms:"70% pre-ship / 30% post-approval" },
+  { date:"2026-03-12", party:"Unimos Microelectronics (Wuhan)",  seg:"China-localization", mem:"Mixed", value:1.69,  delivery:"2026-06-30", terms:"90% within 30d of arrival / 10% post-approval" },
+  { date:"2026-03-17", party:"SK Hynix",                          seg:"Korea-HBM",          mem:"HBM",   value:2.24,  delivery:"2026-04-03", terms:"90% on delivery / 10% post-inspection" },
+  { date:"2026-03-20", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:3.85,  delivery:"2026-06-20", terms:"70% pre-ship / 30% post-approval" },
+  { date:"2026-04-29", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:3.83,  delivery:"2026-10-31", terms:"70% pre-ship / 30% post-approval" },
+  { date:"2026-05-13", party:"Unimos Microelectronics (Wuhan)",  seg:"China-localization", mem:"Mixed", value:7.99,  delivery:"2026-08-30", terms:"90% within 30d of arrival / 10% post-approval" },
+  { date:"2026-05-19", party:"SK Hynix",                          seg:"Korea-HBM",          mem:"HBM",   value:2.64,  delivery:"2026-06-30", terms:"90% on delivery / 10% post-inspection" },
+  { date:"2026-05-19", party:"SK Hynix",                          seg:"Korea-HBM",          mem:"HBM",   value:3.96,  delivery:"2026-10-30", terms:"90% on delivery / 10% post-inspection" },
+  { date:"2026-05-26", party:"Yangtze Memory Technologies (YMTC)",seg:"China-localization", mem:"NAND",  value:3.58,  delivery:"2027-07-01", terms:"within 60d of final approval" },
+  { date:"2026-06-01", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:15.42, delivery:"2026-12-15", terms:"70% pre-ship / 30% post-approval" },
+  { date:"2026-06-12", party:"Yangtze Memory Technologies (YMTC)",seg:"China-localization", mem:"NAND",  value:2.71,  delivery:"2026-08-31", terms:"within 60d of final approval" },
+  { date:"2026-06-23", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:6.22,  delivery:"2026-11-20", terms:"70% pre-ship / 30% post-approval" },
 ];
 
 /* Quarterly ACTUALS from stockanalysis.com (KRW bn) — historical baseline. */
 const ACTUALS = {
+  "2025-Q2":{rev:6.81,  gm:42.22, sga:1.713, rnd:0.085, op:1.041},
   "2025-Q3":{rev:22.63, gm:36.36, sga:2.138, rnd:0.105, op:6.010},
   "2025-Q4":{rev:16.60, gm:44.70, sga:2.991, rnd:0.145, op:1.811},
   "2026-Q1":{rev:20.74, gm:34.55, sga:2.528, rnd:0.118, op:4.887},
@@ -386,12 +391,12 @@ function renderPnl(byQ){
   const base=parseFloat(el("baseRev").value)||0;
   // quarters to display: union of actuals + recognized, from 2025-Q3 onward, plus FY26 total
   const recQs=Object.keys(byQ);
-  let qs=Array.from(new Set([...Object.keys(ACTUALS),...recQs])).filter(q=>q>="2025-Q3").sort(qSort);
+  let qs=Array.from(new Set([...Object.keys(ACTUALS),...recQs])).filter(q=>q>="2025-Q2").sort(qSort);
   const cols=[];
   qs.forEach(q=>{
     const a=ACTUALS[q];
     if(a){ cols.push({q,label:qLabel(q),actual:true,rev:a.rev,gm:a.gm/100,sga:a.sga,rnd:a.rnd,op:a.op,
-        gp:a.rev*a.gm/100}); }
+        gp:a.rev*a.gm/100,orderRev:(byQ[q]?byQ[q].total:0)}); }
     else {
       const orderRev=(byQ[q]?byQ[q].total:0);
       const rev=(window.__revOverride&&window.__revOverride[q]!=null)?window.__revOverride[q]:(orderRev+base);
@@ -413,15 +418,17 @@ function renderPnl(byQ){
       if(c.total)return cell(c,c.rev);
       return `<td class="inp"><input data-q="${c.q}" data-k="rev" type="number" step="0.1" value="${c.rev.toFixed(2)}"></td>`;
     }).join("")}</tr>`;
-  const ordr=`<tr><td class="rowlab actual">↳ from order book</td>${cols.map(c=>
-      `<td class="actual">${c.actual?'–':(c.total?fmt(fy.reduce((s,x)=>s+(x.orderRev||0),0)):fmt(c.orderRev||0))}</td>`).join("")}</tr>`;
+  const ordr=`<tr><td class="rowlab actual">↳ recognized order book</td>${cols.map(c=>
+      `<td class="actual">${c.total?fmt(fy.reduce((s,x)=>s+(x.orderRev||0),0)):fmt(c.orderRev||0)}</td>`).join("")}</tr>`;
+  const covr=`<tr><td class="rowlab actual">↳ order book / reported</td>${cols.map(c=>
+      `<td class="actual">${(c.actual&&c.rev)?(c.orderRev/c.rev*100).toFixed(0)+'%':'–'}</td>`).join("")}</tr>`;
   const gmr=`<tr class="sep"><td class="rowlab">Gross margin %</td>${cols.map(c=>`<td${c.actual?' class="actual"':''}>${fmt(c.gm*100,1)}%</td>`).join("")}</tr>`;
   const gpr=`<tr><td class="rowlab">Gross profit</td>${cols.map(c=>cell(c,c.gp)).join("")}</tr>`;
   const sgar=`<tr><td class="rowlab">SG&amp;A</td>${cols.map(c=>`<td${c.actual||c.total?(c.total?' class="op"':' class="actual"'):''}>(${fmt(c.actual?ACTUALS[c.q].sga:c.sga)})</td>`).join("")}</tr>`;
   const rndr=`<tr><td class="rowlab">R&amp;D</td>${cols.map(c=>`<td${c.actual||c.total?(c.total?' class="op"':' class="actual"'):''}>(${fmt(c.actual?ACTUALS[c.q].rnd:c.rnd,2)})</td>`).join("")}</tr>`;
   const opr=`<tr class="sep"><td class="rowlab op">Operating profit</td>${cols.map(c=>`<td class="op">${fmt(c.op)}</td>`).join("")}</tr>`;
   const omr=`<tr><td class="rowlab">Operating margin %</td>${cols.map(c=>`<td${c.actual?' class="actual"':''}>${c.rev?fmt(c.op/c.rev*100,1):'–'}%</td>`).join("")}</tr>`;
-  el("pnlTbl").innerHTML=head+"<tbody>"+rev+ordr+gmr+gpr+sgar+rndr+opr+omr+"</tbody>";
+  el("pnlTbl").innerHTML=head+"<tbody>"+rev+ordr+covr+gmr+gpr+sgar+rndr+opr+omr+"</tbody>";
   // wire revenue overrides
   el("pnlTbl").querySelectorAll('input[data-k="rev"]').forEach(inp=>{
     inp.addEventListener("input",e=>{window.__revOverride=window.__revOverride||{};
@@ -431,7 +438,7 @@ function renderPnl(byQ){
 
 /* ===================== contract table ===================== */
 function renderTable(){
-  const head=["Date","Counterparty","Segment","Memory","Value (bn)","Delivery","Rev. qtr","% of sales","% of mkt-cap","Impl. EPS","Cumulative"];
+  const head=["Order date","Counterparty","Segment","Memory","Value (bn)","Delivery","Rev. qtr","Payment terms","% of sales","% of mkt-cap","Impl. EPS","Cumul."];
   let html="<thead><tr>"+head.map(h=>`<th>${h}</th>`).join("")+"</tr></thead><tbody>";
   [...rows].reverse().forEach(r=>{
     const pill=r.seg==="Korea-HBM"?'seg-korea':'seg-china';
@@ -443,6 +450,7 @@ function renderTable(){
       <td>${fmt(r.value,2)}</td>
       <td>${r.delDate}${r.est?'<span class="est">est</span>':''}</td>
       <td><span class="q-pill">${qLabel(r.delQ)}</span></td>
+      <td style="text-align:left;white-space:normal;max-width:170px;font-size:11px;color:#555">${r.terms||'–'}</td>
       <td>${fmt(r.pctSales,2)}</td><td>${fmt(r.pctMkt,2)}</td>
       <td>${Math.round(r.eps)}</td><td>${fmt(r.cum,1)}</td></tr>`;
   });

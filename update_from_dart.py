@@ -119,27 +119,40 @@ def find_after(text, labels, maxlen=80):
     for lab in labels:
         m = re.search(re.escape(lab) + r"[^0-9A-Za-z가-힣]{0,6}([^\n]{1,%d})" % maxlen, text)
         if m:
-            return m.group(1).strip(" :：\t")
+            return m.group(1).replace("\r", "").strip(" :：\t-")
     return None
 
 
+def norm_date(s):
+    if not s:
+        return None
+    m = re.search(r"(20\d\d)[.\-/년 ]+(\d{1,2})[.\-/월 ]+(\d{1,2})", s)
+    return f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}" if m else None
+
+
+def is_date(s):
+    return bool(s) and bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", s))
+
+
 def parse_contract(text):
-    rec = {k: find_after(text, labs) for k, labs in LABELS.items()}
-    # normalize amount -> billion KRW
-    if rec.get("amount"):
-        digits = re.sub(r"[^\d]", "", rec["amount"])
-        if digits:
-            rec["amount_bn"] = round(int(digits) / 1e9, 2)
-    # normalize dates YYYY-MM-DD
-    for k in ("start", "end"):
-        if rec.get(k):
-            m = re.search(r"(20\d\d)[.\-/년 ]+(\d{1,2})[.\-/월 ]+(\d{1,2})", rec[k])
-            if m:
-                rec[k] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+    rec = {}
+    # contract amount: first comma-grouped number right after 계약금액(원)
+    m = re.search(r"계약금액[^\n]{0,12}\s*([\d]{1,3}(?:,\d{3})+)", text)
+    if m:
+        rec["amount_won"] = m.group(1)
+        rec["amount_bn"] = round(int(m.group(1).replace(",", "")) / 1e9, 2)
+    rec["party"]      = find_after(text, ["계약상대"])
+    rec["start"]      = norm_date(find_after(text, ["시작일"]))
+    rec["end"]        = norm_date(find_after(text, ["종료일"]))
+    rec["terms"]      = find_after(text, ["대금지급 조건 등", "조건 등", "결제조건"])
+    rec["order_date"] = norm_date(find_after(text, ["계약(수주)일자", "수주)일자"]))
+    rec["product"]    = find_after(text, ["판매ㆍ공급계약 내용", "체결계약명", "계약내용"])
     return rec
 
 
 def quarter(d):
+    if not is_date(d):
+        return "?"
     y, m, _ = d.split("-")
     return f"{y}-Q{(int(m)-1)//3 + 1}"
 
@@ -169,14 +182,15 @@ def main():
         rec = parse_contract(fetch_doc_text(f["rcept_no"]))
         rec["rcept_no"], rec["report_nm"] = f["rcept_no"], f["report_nm"]
         rec["rcept_dt"] = f"{f['rcept_dt'][:4]}-{f['rcept_dt'][4:6]}-{f['rcept_dt'][6:]}"
-        delivered = rec.get("end") and rec["end"] <= today
+        delivered = is_date(rec.get("end")) and rec["end"] <= today
         rec["delivery_passed"] = bool(delivered)
+        rec["delivery_q"] = quarter(rec.get("end"))
         results.append(rec)
-        print(f"- {rec['rcept_dt']}  {f['report_nm']}  (rcept {f['rcept_no']})")
+        print(f"- order {rec.get('order_date') or rec['rcept_dt']}  {f['report_nm']}  (rcept {f['rcept_no']})")
         print(f"    party:   {rec.get('party')}")
         print(f"    amount:  {rec.get('amount_bn')} bn KRW")
         print(f"    period:  {rec.get('start')} -> {rec.get('end')}"
-              + (f"   [delivery quarter {quarter(rec['end'])}]" if rec.get('end') else "")
+              + (f"   [delivery quarter {rec['delivery_q']}]" if is_date(rec.get('end')) else "")
               + ("   << deadline passed: validate vs reported revenue" if delivered else ""))
         print(f"    terms:   {rec.get('terms')}")
         print(f"    product: {rec.get('product')}\n")
