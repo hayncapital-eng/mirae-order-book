@@ -23,7 +23,8 @@
   .updated{font-size:11px;color:var(--muted)}
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
   .kpi{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:11px 13px}
-  .kpi .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+  .kpi{display:flex;flex-direction:column}
+  .kpi .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;min-height:2.4em;line-height:1.2}
   .kpi .v{font-size:21px;font-weight:700;margin-top:3px}
   .kpi .s{font-size:11px;color:var(--muted);margin-top:2px}
   .panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;margin-bottom:16px}
@@ -35,6 +36,7 @@
     border-radius:5px;padding:3px 9px;cursor:pointer;user-select:none}
   .btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
   .chart-box{padding:10px 12px}
+  .cw{position:relative;width:100%}
   .legend{display:flex;flex-wrap:wrap;gap:14px;padding:8px 13px 12px;font-size:11.5px;color:#333}
   .legend span{display:inline-flex;align-items:center;gap:6px}
   .swatch{width:12px;height:12px;border-radius:2px;display:inline-block}
@@ -93,7 +95,7 @@
         <span class="btn on" id="fitBtn">fit</span>
       </div>
     </div>
-    <div class="chart-box"><canvas id="cumChart" height="150"></canvas></div>
+    <div class="chart-box"><div class="cw" style="height:340px"><canvas id="cumChart"></canvas></div></div>
     <div class="legend" id="cumLegend"></div>
   </div>
 
@@ -102,7 +104,7 @@
     <div class="panel-h">
       <div class="t">Individual contract awards<span class="sub">bn KRW per filing, by segment</span></div>
     </div>
-    <div class="chart-box"><canvas id="barChart" height="110"></canvas></div>
+    <div class="chart-box"><div class="cw" style="height:220px"><canvas id="barChart"></canvas></div></div>
   </div>
 
   <!-- Memory end-market breakdown -->
@@ -110,8 +112,8 @@
     <div class="panel-h">
       <div class="t">Order book by memory end-market<span class="sub">inferred from customer · DRAM / NAND / HBM</span></div>
     </div>
-    <div class="chart-box" style="display:grid;grid-template-columns:200px 1fr;gap:16px;align-items:center">
-      <canvas id="memChart" height="200"></canvas>
+    <div class="chart-box" style="display:grid;grid-template-columns:220px 1fr;gap:20px;align-items:center">
+      <div class="cw" style="height:200px"><canvas id="memChart"></canvas></div>
       <div id="memTable"></div>
     </div>
     <div class="note">Memory type is <b>inferred from the counterparty</b>, not stated in DART filings (which only say "반도체 검사장비"). CXMT→DRAM, YMTC→NAND, SK Hynix→HBM, Unimos &amp; Yiling Trading→Mixed (DRAM/NAND, end-fab obscured by the trading intermediary). Edit the <code>mem</code> field per contract to refine.</div>
@@ -147,7 +149,7 @@
         <span class="hint">For contracts without a confirmed DART delivery date.</span>
       </div>
     </div>
-    <div class="chart-box"><canvas id="recChart" height="105"></canvas></div>
+    <div class="chart-box"><div class="cw" style="height:260px"><canvas id="recChart"></canvas></div></div>
     <div class="note" id="recNote"></div>
   </div>
 
@@ -301,7 +303,7 @@ const cumChart=new Chart(document.getElementById("cumChart"),{
   data:{datasets:[mkLine("cum",C("--line-total"),"Cumulative total"),
     mkLine("cumC",C("--line-china"),"China-localization"),
     mkLine("cumK",C("--line-korea"),"Korea-HBM")]},
-  options:{responsive:true,maintainAspectRatio:true,interaction:{mode:"nearest",intersect:false},
+  options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"nearest",intersect:false},
     plugins:{legend:{display:false},tooltip:{callbacks:{
       title:items=>{const r=rows[items[0].dataIndex];return r.date+" — "+r.party;},
       label:ctx=>ctx.dataset.label+": "+fmt(ctx.parsed.y)+" bn KRW"}}},
@@ -326,7 +328,7 @@ new Chart(document.getElementById("barChart"),{type:"bar",
   data:{datasets:[
     {label:"China-localization",data:rows.filter(r=>r.seg!=="Korea-HBM").map(r=>({x:r.x,y:r.value})),backgroundColor:C("--bar-china"),barThickness:9},
     {label:"Korea-HBM",data:rows.filter(r=>r.seg==="Korea-HBM").map(r=>({x:r.x,y:r.value})),backgroundColor:C("--bar-korea"),barThickness:9}]},
-  options:{responsive:true,maintainAspectRatio:true,
+  options:{responsive:true,maintainAspectRatio:false,
     plugins:{legend:{display:true,labels:{font:{size:11},boxWidth:12}},
       tooltip:{callbacks:{label:ctx=>fmt(ctx.parsed.y)+" bn KRW"}}},
     scales:{x:{type:"linear",min:xmin,max:xmax,grid:{color:C("--grid")},
@@ -366,7 +368,7 @@ function renderRec(byQ){
        {label:"Korea-HBM",data:qs.map(q=>+byQ[q].Korea.toFixed(2)),backgroundColor:C("--bar-korea")}];
   if(!recChart){
     recChart=new Chart(el("recChart"),{type:"bar",data:{labels,datasets:ds},
-      options:{responsive:true,maintainAspectRatio:true,
+      options:{responsive:true,maintainAspectRatio:false,
         plugins:{legend:{display:true,labels:{font:{size:11},boxWidth:12}},
           tooltip:{callbacks:{footer:items=>{const q=qs[items[0].dataIndex];return "Total: "+fmt(byQ[q].total,2)+" bn";}}}},
         scales:{x:{stacked:true,grid:{display:false},ticks:{color:C("--muted"),font:{size:10}}},
@@ -468,7 +470,7 @@ function renderMem(){
     data:{labels:order,datasets:[{data:order.map(m=>+tot[m].toFixed(2)),
       backgroundColor:order.map(memColor),borderWidth:1.5,borderColor:"#fbfaf6"}]},
     options:{
-      responsive:true,maintainAspectRatio:true,cutout:"56%",
+      responsive:true,maintainAspectRatio:false,cutout:"56%",
       plugins:{
         legend:{display:false},
         tooltip:{callbacks:{label:c=>c.label+": "+fmt(c.parsed)+" bn ("+(c.parsed/T*100).toFixed(0)+"%)"}}
