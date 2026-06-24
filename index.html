@@ -258,6 +258,9 @@ const CFG = { annualRevenueBn:50.8, marketCapBn:226, sharesM:4.5, netMargin:0.17
 /* ===================== helpers ===================== */
 const fmt=(n,d=1)=> (n==null||isNaN(n))?"–":n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
 function decYear(s){const dt=new Date(s+"T00:00:00Z");const a=Date.UTC(dt.getUTCFullYear(),0,1),b=Date.UTC(dt.getUTCFullYear()+1,0,1);return dt.getUTCFullYear()+(dt-a)/(b-a);}
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function decYearLabel(v){const y=Math.floor(v);const a=Date.UTC(y,0,1),b=Date.UTC(y+1,0,1);const d=new Date(a+(v-y)*(b-a));return MON[d.getUTCMonth()]+" ’"+String(y).slice(2);}
+function qTicks(min,max){const t=[];for(let y=Math.floor(min);y<=Math.ceil(max);y++)for(let q=0;q<4;q++){const v=y+q*0.25;if(v>=min&&v<=max)t.push({value:v});}return t;}
 function qOf(s){const dt=new Date(s+"T00:00:00Z");const y=dt.getUTCFullYear();const q=Math.floor(dt.getUTCMonth()/3)+1;return y+"-Q"+q;}
 function qLabel(k){const[y,q]=k.split("-");return q+" "+y;}
 function qSort(a,b){return a<b?-1:a>b?1:0;}
@@ -307,8 +310,9 @@ const cumChart=new Chart(document.getElementById("cumChart"),{
       title:items=>{const r=rows[items[0].dataIndex];return r.date+" — "+r.party;},
       label:ctx=>ctx.dataset.label+": "+fmt(ctx.parsed.y)+" bn KRW"}}},
     scales:{x:{type:"linear",min:xmin,max:xmax,grid:{color:C("--grid")},
-        ticks:{stepSize:0.2,callback:v=>v.toFixed(1),color:C("--muted"),font:{size:10}},
-        title:{display:true,text:"year",color:C("--muted"),font:{size:10}}},
+        afterBuildTicks:a=>{a.ticks=qTicks(a.min,a.max);},
+        ticks:{callback:v=>decYearLabel(v),maxRotation:0,autoSkip:false,color:C("--muted"),font:{size:10}},
+        title:{display:false}},
       y:{type:"linear",grid:{color:C("--grid")},ticks:{color:C("--muted"),font:{size:10}},
         title:{display:true,text:"Cumulative contract value (bn KRW)",color:C("--muted"),font:{size:10}}}}}
 });
@@ -323,15 +327,19 @@ document.getElementById("fitBtn").onclick=function(){this.classList.toggle("on")
   cumChart.options.scales.x.min=fit?xmin:undefined;cumChart.options.scales.x.max=fit?xmax:undefined;cumChart.update();};
 
 /* ===================== per-contract bar chart ===================== */
+const barPt=r=>({x:r.x,y:r.value,party:r.party,date:r.date});
 new Chart(document.getElementById("barChart"),{type:"bar",
   data:{datasets:[
-    {label:"China-localization",data:rows.filter(r=>r.seg!=="Korea-HBM").map(r=>({x:r.x,y:r.value})),backgroundColor:C("--bar-china"),barThickness:9},
-    {label:"Korea-HBM",data:rows.filter(r=>r.seg==="Korea-HBM").map(r=>({x:r.x,y:r.value})),backgroundColor:C("--bar-korea"),barThickness:9}]},
+    {label:"China-localization",data:rows.filter(r=>r.seg!=="Korea-HBM").map(barPt),backgroundColor:C("--bar-china"),barThickness:9},
+    {label:"Korea-HBM",data:rows.filter(r=>r.seg==="Korea-HBM").map(barPt),backgroundColor:C("--bar-korea"),barThickness:9}]},
   options:{responsive:true,maintainAspectRatio:false,
     plugins:{legend:{display:true,labels:{font:{size:11},boxWidth:12}},
-      tooltip:{callbacks:{label:ctx=>fmt(ctx.parsed.y)+" bn KRW"}}},
+      tooltip:{callbacks:{
+        title:items=>items[0].raw.date+" — "+shortParty(items[0].raw.party),
+        label:ctx=>fmt(ctx.parsed.y,2)+" bn KRW"}}},
     scales:{x:{type:"linear",min:xmin,max:xmax,grid:{color:C("--grid")},
-        ticks:{stepSize:0.2,callback:v=>v.toFixed(1),color:C("--muted"),font:{size:10}}},
+        afterBuildTicks:a=>{a.ticks=qTicks(a.min,a.max);},
+        ticks:{callback:v=>decYearLabel(v),maxRotation:0,autoSkip:false,color:C("--muted"),font:{size:10}}},
       y:{grid:{color:C("--grid")},ticks:{color:C("--muted"),font:{size:10}},
         title:{display:true,text:"Contract value (bn KRW)",color:C("--muted"),font:{size:10}}}}}
 });
