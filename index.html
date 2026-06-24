@@ -175,13 +175,18 @@
         <span class="hint">Q1'26 actual ≈ 0.12.</span>
       </div>
       <div class="field">
-        <label>Other/base revenue per qtr (bn KRW)</label>
-        <input id="baseRev" type="number" value="0" min="0" step="0.5">
-        <span class="hint">Non-logged revenue to add on top of order book.</span>
+        <label>Base ATE per qtr (bn KRW)</label>
+        <input id="baseAte" type="number" value="5" min="0" step="0.5">
+        <span class="hint">Sub-threshold + domestic handler orders (H1'25 ran ~4.6).</span>
+      </div>
+      <div class="field">
+        <label>MAI per qtr (bn KRW)</label>
+        <input id="mai" type="number" value="2" min="0" step="0.5">
+        <span class="hint">Insertion-system line; lumpy 0.85–3.4, avg ~1.8.</span>
       </div>
     </div>
     <div class="tbl-wrap"><table class="pnl" id="pnlTbl"></table></div>
-    <div class="note">Historical quarters show <span class="actual">actuals from stockanalysis.com</span>; modeled quarters use recognized order-book revenue × your assumptions. Revenue cells in modeled quarters are editable overrides.</div>
+    <div class="note">Historical quarters show <span class="actual">actual ATE / MAI segment revenue</span> from DART quarterly reports (margins from stockanalysis.com). For history, <span class="actual">base / sub-threshold</span> = ATE − order-book contracts (absorbs ±1-quarter delivery-timing slippage). Modeled quarters (Q2'26+) = order-book contracts + base-ATE + MAI, each editable above. Opex is held fixed (it barely moves with revenue — that's the operating leverage); only gross margin is a %.</div>
   </div>
 
   <!-- Data table -->
@@ -244,12 +249,15 @@ const CONTRACTS = [
   { date:"2026-06-23", party:"YILING TRADING",                   seg:"China-localization", mem:"Mixed", value:6.22,  delivery:"2026-11-20", terms:"70% pre-ship / 30% post-approval" },
 ];
 
-/* Quarterly ACTUALS from stockanalysis.com (KRW bn) — historical baseline. */
+/* Quarterly ACTUALS — segment revenue (ate=test handlers, mai=insertion systems)
+   derived from DART periodic reports (분기/반기/사업보고서, 매출실적 table); margins
+   (gm/sga/rnd/op) from stockanalysis.com. All KRW bn. rev = ate + mai. */
 const ACTUALS = {
-  "2025-Q2":{rev:6.81,  gm:42.22, sga:1.713, rnd:0.085, op:1.041},
-  "2025-Q3":{rev:22.63, gm:36.36, sga:2.138, rnd:0.105, op:6.010},
-  "2025-Q4":{rev:16.60, gm:44.70, sga:2.991, rnd:0.145, op:1.811},
-  "2026-Q1":{rev:20.74, gm:34.55, sga:2.528, rnd:0.118, op:4.887},
+  "2025-Q1":{ate:3.634, mai:1.114, rev:4.749,  gm:56.74, sga:2.242, rnd:0.178, op:0.292},
+  "2025-Q2":{ate:5.537, mai:1.270, rev:6.806,  gm:42.22, sga:1.713, rnd:0.085, op:1.041},
+  "2025-Q3":{ate:21.781,mai:0.847, rev:22.628, gm:36.36, sga:2.138, rnd:0.105, op:6.010},
+  "2025-Q4":{ate:14.240,mai:2.355, rev:16.595, gm:44.70, sga:2.991, rnd:0.145, op:1.811},
+  "2026-Q1":{ate:17.350,mai:3.389, rev:20.738, gm:34.55, sga:2.528, rnd:0.118, op:4.887},
 };
 
 /* Derived-column assumptions (edit freely) */
@@ -390,52 +398,43 @@ function renderPnl(byQ){
   const gm=(parseFloat(el("gmPct").value)||0)/100;
   const sga=parseFloat(el("sga").value)||0;
   const rnd=parseFloat(el("rnd").value)||0;
-  const base=parseFloat(el("baseRev").value)||0;
-  // quarters to display: union of actuals + recognized, from 2025-Q3 onward, plus FY26 total
+  const baseAte=parseFloat(el("baseAte").value)||0;
+  const maiIn=parseFloat(el("mai").value)||0;
   const recQs=Object.keys(byQ);
-  let qs=Array.from(new Set([...Object.keys(ACTUALS),...recQs])).filter(q=>q>="2025-Q2").sort(qSort);
+  let qs=Array.from(new Set([...Object.keys(ACTUALS),...recQs])).filter(q=>q>="2025-Q1").sort(qSort);
   const cols=[];
   qs.forEach(q=>{
     const a=ACTUALS[q];
-    if(a){ cols.push({q,label:qLabel(q),actual:true,rev:a.rev,gm:a.gm/100,sga:a.sga,rnd:a.rnd,op:a.op,
-        gp:a.rev*a.gm/100,orderRev:(byQ[q]?byQ[q].total:0)}); }
-    else {
-      const orderRev=(byQ[q]?byQ[q].total:0);
-      const rev=(window.__revOverride&&window.__revOverride[q]!=null)?window.__revOverride[q]:(orderRev+base);
-      const gp=rev*gm, op=gp-sga-rnd;
-      cols.push({q,label:qLabel(q),actual:false,rev,gm,sga,rnd,gp,op,orderRev});
+    const ob=(byQ[q]?byQ[q].total:0);          // order-book contracts recognized (by delivery deadline)
+    if(a){
+      cols.push({q,label:qLabel(q),actual:true, ob, base:Math.max(0,a.ate-ob), ate:a.ate, mai:a.mai,
+        rev:a.rev, gm:a.gm/100, sga:a.sga, rnd:a.rnd, op:a.op, gp:a.rev*a.gm/100});
+    } else {
+      const ate=ob+baseAte, mai=maiIn, rev=ate+mai, gp=rev*gm, op=gp-sga-rnd;
+      cols.push({q,label:qLabel(q),actual:false, ob, base:baseAte, ate, mai, rev, gm, sga, rnd, gp, op});
     }
   });
-  // FY2026 total column
   const fy=cols.filter(c=>c.q.startsWith("2026"));
   if(fy.length){
     const sum=k=>fy.reduce((s,c)=>s+(c[k]||0),0);
     const rev=sum("rev"),gp=sum("gp"),op=sum("op");
-    cols.push({q:"2026-FY",label:"FY2026E",actual:false,total:true,rev,gp,op,gm:rev?gp/rev:0,sga:sum("sga"),rnd:sum("rnd")});
+    cols.push({q:"2026-FY",label:"FY2026E",total:true, ob:sum("ob"),base:sum("base"),ate:sum("ate"),
+      mai:sum("mai"), rev, gp, op, gm:rev?gp/rev:0, sga:sum("sga"), rnd:sum("rnd")});
   }
   const head=`<thead><tr><th>KRW bn</th>${cols.map(c=>`<th>${c.label}${c.actual?' <span class="actual">A</span>':''}</th>`).join("")}</tr></thead>`;
-  const cell=(c,v,d=2)=>`<td${c.total?' class="op"':''}>${fmt(v,d)}</td>`;
-  const rev=`<tr><td class="rowlab">Revenue</td>${cols.map(c=>{
-      if(c.actual)return `<td class="actual">${fmt(c.rev)}</td>`;
-      if(c.total)return cell(c,c.rev);
-      return `<td class="inp"><input data-q="${c.q}" data-k="rev" type="number" step="0.1" value="${c.rev.toFixed(2)}"></td>`;
-    }).join("")}</tr>`;
-  const ordr=`<tr><td class="rowlab actual">↳ recognized order book</td>${cols.map(c=>
-      `<td class="actual">${c.total?fmt(fy.reduce((s,x)=>s+(x.orderRev||0),0)):fmt(c.orderRev||0)}</td>`).join("")}</tr>`;
-  const covr=`<tr><td class="rowlab actual">↳ order book / reported</td>${cols.map(c=>
-      `<td class="actual">${(c.actual&&c.rev)?(c.orderRev/c.rev*100).toFixed(0)+'%':'–'}</td>`).join("")}</tr>`;
-  const gmr=`<tr class="sep"><td class="rowlab">Gross margin %</td>${cols.map(c=>`<td${c.actual?' class="actual"':''}>${fmt(c.gm*100,1)}%</td>`).join("")}</tr>`;
-  const gpr=`<tr><td class="rowlab">Gross profit</td>${cols.map(c=>cell(c,c.gp)).join("")}</tr>`;
-  const sgar=`<tr><td class="rowlab">SG&amp;A</td>${cols.map(c=>`<td${c.actual||c.total?(c.total?' class="op"':' class="actual"'):''}>(${fmt(c.actual?ACTUALS[c.q].sga:c.sga)})</td>`).join("")}</tr>`;
-  const rndr=`<tr><td class="rowlab">R&amp;D</td>${cols.map(c=>`<td${c.actual||c.total?(c.total?' class="op"':' class="actual"'):''}>(${fmt(c.actual?ACTUALS[c.q].rnd:c.rnd,2)})</td>`).join("")}</tr>`;
-  const opr=`<tr class="sep"><td class="rowlab op">Operating profit</td>${cols.map(c=>`<td class="op">${fmt(c.op)}</td>`).join("")}</tr>`;
-  const omr=`<tr><td class="rowlab">Operating margin %</td>${cols.map(c=>`<td${c.actual?' class="actual"':''}>${c.rev?fmt(c.op/c.rev*100,1):'–'}%</td>`).join("")}</tr>`;
-  el("pnlTbl").innerHTML=head+"<tbody>"+rev+ordr+covr+gmr+gpr+sgar+rndr+opr+omr+"</tbody>";
-  // wire revenue overrides
-  el("pnlTbl").querySelectorAll('input[data-k="rev"]').forEach(inp=>{
-    inp.addEventListener("input",e=>{window.__revOverride=window.__revOverride||{};
-      window.__revOverride[e.target.dataset.q]=parseFloat(e.target.value)||0; refresh(false);});
-  });
+  const cell=(c,v,cls="")=>`<td class="${cls}${c.total?' op':''}">${fmt(v)}</td>`;
+  const ateR =`<tr><td class="rowlab">ATE revenue</td>${cols.map(c=>cell(c,c.ate)).join("")}</tr>`;
+  const obR  =`<tr><td class="rowlab actual">↳ order-book contracts</td>${cols.map(c=>`<td class="actual">${fmt(c.ob)}</td>`).join("")}</tr>`;
+  const baseR=`<tr><td class="rowlab actual">↳ base / sub-threshold</td>${cols.map(c=>`<td class="actual">${fmt(c.base)}</td>`).join("")}</tr>`;
+  const maiR =`<tr><td class="rowlab">MAI revenue</td>${cols.map(c=>cell(c,c.mai)).join("")}</tr>`;
+  const revR =`<tr class="sep"><td class="rowlab">Total revenue</td>${cols.map(c=>cell(c,c.rev)).join("")}</tr>`;
+  const gmR  =`<tr><td class="rowlab">Gross margin %</td>${cols.map(c=>`<td${c.actual?' class="actual"':''}>${fmt(c.gm*100,1)}%</td>`).join("")}</tr>`;
+  const gpR  =`<tr><td class="rowlab">Gross profit</td>${cols.map(c=>cell(c,c.gp)).join("")}</tr>`;
+  const sgaR =`<tr><td class="rowlab">SG&amp;A</td>${cols.map(c=>`<td${c.total?' class="op"':(c.actual?' class="actual"':'')}>(${fmt(c.sga)})</td>`).join("")}</tr>`;
+  const rndR =`<tr><td class="rowlab">R&amp;D</td>${cols.map(c=>`<td${c.total?' class="op"':(c.actual?' class="actual"':'')}>(${fmt(c.rnd,2)})</td>`).join("")}</tr>`;
+  const opR  =`<tr class="sep"><td class="rowlab op">Operating profit</td>${cols.map(c=>`<td class="op">${fmt(c.op)}</td>`).join("")}</tr>`;
+  const omR  =`<tr><td class="rowlab">Operating margin %</td>${cols.map(c=>`<td${c.actual?' class="actual"':''}>${c.rev?fmt(c.op/c.rev*100,1):'–'}%</td>`).join("")}</tr>`;
+  el("pnlTbl").innerHTML=head+"<tbody>"+ateR+obR+baseR+maiR+revR+gmR+gpR+sgaR+rndR+opR+omR+"</tbody>";
 }
 
 /* ===================== contract table ===================== */
@@ -486,15 +485,14 @@ function renderMem(){
 }
 
 /* ===================== refresh orchestration ===================== */
-function refresh(full=true){
+function refresh(){
   const byQ=recognized();
   renderRec(byQ);
-  if(full) window.__revOverride=window.__revOverride||{};
   renderPnl(byQ);
   renderTable();
 }
-["recMode","splitAtOrder","lagMonths","gmPct","sga","rnd","baseRev"].forEach(id=>{
-  el(id).addEventListener("input",()=>refresh(false));
+["recMode","splitAtOrder","lagMonths","gmPct","sga","rnd","baseAte","mai"].forEach(id=>{
+  el(id).addEventListener("input",refresh);
 });
 el("bySeg").onclick=()=>{recColorBy="segment";el("bySeg").classList.add("on");el("byMem").classList.remove("on");refresh(false);};
 el("byMem").onclick=()=>{recColorBy="memory";el("byMem").classList.add("on");el("bySeg").classList.remove("on");refresh(false);};
