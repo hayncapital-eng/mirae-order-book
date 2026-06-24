@@ -340,6 +340,14 @@ new Chart(document.getElementById("barChart"),{type:"bar",
 const el=id=>document.getElementById(id);
 const MEMS=["DRAM","NAND","HBM","Mixed"];
 const memColor=m=>C("--mem-"+m.toLowerCase());
+function shortParty(p){
+  if(/YILING/i.test(p))      return "Yiling";
+  if(/Yangtze|YMTC/i.test(p))return "YMTC";
+  if(/Unimos/i.test(p))      return "Unimos";
+  if(/SK/i.test(p))          return "SK Hynix";
+  if(/CXMT/i.test(p))        return "CXMT";
+  return p;
+}
 function deliveryDate(r,lagMonths){
   if(r.delivery) return r.delivery;          // confirmed DART contract-period end
   const dt=new Date(r.date+"T00:00:00Z");
@@ -365,17 +373,34 @@ function renderRec(byQ){
     ? MEMS.map(m=>({label:m,data:qs.map(q=>+(byQ[q][m]||0).toFixed(2)),backgroundColor:memColor(m)}))
     : [{label:"China-localization",data:qs.map(q=>+byQ[q].China.toFixed(2)),backgroundColor:C("--bar-china")},
        {label:"Korea-HBM",data:qs.map(q=>+byQ[q].Korea.toFixed(2)),backgroundColor:C("--bar-korea")}];
+  // contracts recognized in each quarter (by delivery), largest first
+  const cbq={};
+  rows.forEach(r=>{ (cbq[r.delQ]=cbq[r.delQ]||[]).push(r); });
+  Object.values(cbq).forEach(l=>l.sort((a,b)=>b.value-a.value));
+  const tip={
+    title:items=> items.length ? qLabel(qs[items[0].dataIndex]) : "",
+    label:ctx=> ctx.dataset.label+": "+fmt(ctx.parsed.y,1)+" bn",
+    afterBody:items=>{
+      const list=cbq[qs[items[0].dataIndex]]||[];
+      if(!list.length) return [];
+      return ["", list.length+(list.length>1?" contracts (customer · order · value):":" contract:")]
+        .concat(list.map(r=> "  "+shortParty(r.party)+"  ·  "+r.date+"  ·  "+fmt(r.value,2)+" bn"
+          + (r.est?" (est. delivery)":"")));
+    },
+    footer:items=>"Total: "+fmt(byQ[qs[items[0].dataIndex]].total,2)+" bn",
+  };
   if(!recChart){
     recChart=new Chart(el("recChart"),{type:"bar",data:{labels,datasets:ds},
-      options:{responsive:true,maintainAspectRatio:false,
+      options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
         plugins:{legend:{display:true,labels:{font:{size:11},boxWidth:12}},
-          tooltip:{callbacks:{footer:items=>{const q=qs[items[0].dataIndex];return "Total: "+fmt(byQ[q].total,2)+" bn";}}}},
+          tooltip:{mode:"index",intersect:false,filter:i=>i.parsed.y>0,padding:9,
+            titleFont:{size:12},bodyFont:{size:11},footerFont:{size:11},callbacks:tip}},
         scales:{x:{stacked:true,grid:{display:false},ticks:{color:C("--muted"),font:{size:10}}},
           y:{stacked:true,grid:{color:C("--grid")},ticks:{color:C("--muted"),font:{size:10}},
             title:{display:true,text:"Recognized revenue (bn KRW)",color:C("--muted"),font:{size:10}}}}}});
   }else{
     recChart.data.labels=labels; recChart.data.datasets=ds;
-    recChart.options.plugins.tooltip.callbacks.footer=items=>{const q=qs[items[0].dataIndex];return "Total: "+fmt(byQ[q].total,2)+" bn";};
+    recChart.options.plugins.tooltip.callbacks=tip;
     recChart.update();
   }
   const upcoming=qs.filter(q=>q>="2026-Q2").map(q=>qLabel(q)+" "+fmt(byQ[q].total,1)+"bn").join("  ·  ");
