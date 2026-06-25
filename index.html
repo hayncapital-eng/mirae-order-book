@@ -119,6 +119,15 @@
     <div class="note">Memory type is <b>inferred from the counterparty</b>, not stated in DART filings (which only say "반도체 검사장비"). CXMT→DRAM, YMTC→NAND, SK Hynix→HBM, Unimos &amp; Yiling Trading→Mixed (DRAM/NAND, end-fab obscured by the trading intermediary). Edit the <code>mem</code> field per contract to refine.</div>
   </div>
 
+  <!-- Fab capacity additions (demand driver) -->
+  <div class="panel">
+    <div class="panel-h">
+      <div class="t">Fab capacity additions — Mirae-addressable vs industry<span class="sub">kwpm added per year · the demand driver behind the order book</span></div>
+    </div>
+    <div class="chart-box"><div class="cw" style="height:300px"><canvas id="capChart"></canvas></div></div>
+    <div class="note" id="capNote"></div>
+  </div>
+
   <!-- Revenue recognition by quarter -->
   <div class="panel">
     <div class="panel-h">
@@ -343,6 +352,47 @@ new Chart(document.getElementById("barChart"),{type:"bar",
       y:{grid:{color:C("--grid")},ticks:{color:C("--muted"),font:{size:10}},
         title:{display:true,text:"Contract value (bn KRW)",color:C("--muted"),font:{size:10}}}}}
 });
+
+/* ===================== fab capacity additions (demand driver) ===================== */
+/* kwpm added per year. addr = Mirae-customer fabs x commodity (ex-HBM); industry = all
+   makers + HBM. Researched L-confidence estimates — see mirae_lean_model.py for sources. */
+const CAP={
+  years:[2024,2025,2026,2027,2028],
+  addr:[135,143,133,185,228],
+  industry:[270,320,360,440,440],
+  pipeFrom:2,                                  // index of 2026 (segments after this = forecast)
+  drivers:{2024:"CXMT 95, YMTC 25, SK hynix 15",
+    2025:"CXMT 85, YMTC 35, SK hynix 15, Samsung 8",
+    2026:"CXMT 76, YMTC 40, SK hynix 22, Samsung 15, Korea NAND −20",
+    2027:"CXMT 83, SK M15X 25, SK Yongin Y1 32, YMTC 45",
+    2028:"CXMT 83, SK Yongin Y1 70, YMTC 45, Samsung P5 30"}
+};
+const dashPipe=ctx=>ctx.p0DataIndex>=CAP.pipeFrom?[6,4]:undefined;
+new Chart(document.getElementById("capChart"),{
+  type:"line",
+  data:{labels:CAP.years,datasets:[
+    {label:"Mirae-addressable (ex-HBM)",data:CAP.addr,borderColor:C("--bar-china"),backgroundColor:C("--bar-china"),
+      borderWidth:2.5,pointRadius:3,pointHoverRadius:5,tension:.12,segment:{borderDash:dashPipe}},
+    {label:"Total industry (all makers, incl HBM)",data:CAP.industry,borderColor:C("--line-total"),backgroundColor:C("--line-total"),
+      borderWidth:2,pointRadius:3,pointHoverRadius:5,tension:.12,segment:{borderDash:dashPipe}}]},
+  options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+    plugins:{legend:{display:true,labels:{font:{size:11},boxWidth:14}},
+      tooltip:{padding:9,callbacks:{
+        title:items=>{const y=CAP.years[items[0].dataIndex];return y+(y>=2027?"  (pipeline / forecast)":"");},
+        label:ctx=>ctx.dataset.label+": "+ctx.parsed.y+" kwpm",
+        afterBody:items=>{const i=items[0].dataIndex;
+          return ["","Mirae share of industry: "+Math.round(CAP.addr[i]/CAP.industry[i]*100)+"%",
+            "addressable drivers:","  "+CAP.drivers[CAP.years[i]]];}}}},
+    scales:{x:{grid:{display:false},ticks:{color:C("--muted"),font:{size:11}}},
+      y:{grid:{color:C("--grid")},beginAtZero:true,ticks:{color:C("--muted"),font:{size:10}},
+        title:{display:true,text:"kwpm added / year",color:C("--muted"),font:{size:10}}}}}
+});
+document.getElementById("capNote").innerHTML=
+  "<b>Addressable</b> = Mirae-customer fabs (CXMT, YMTC, SK hynix, Samsung) × commodity/package-testable capacity, "+
+  "<b>excluding HBM</b> (tested at wafer/bare-die level, bypasses Mirae's package handlers) and excluding Micron. "+
+  "<b>Industry</b> = all makers + all product incl HBM. Addressable additions averaged ~137 kwpm/yr recently → "+
+  "~206 in the 2027–28 pipeline (<b>+51%</b>); the gap to industry is HBM-bound DRAM + Micron + non-confirmed customers, "+
+  "widening as HBM grows. Dashed = forecast. L-confidence estimates — edit in <code>mirae_lean_model.py</code>.";
 
 /* ===================== recognition model (interactive) ===================== */
 const el=id=>document.getElementById(id);
