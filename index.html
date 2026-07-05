@@ -190,6 +190,16 @@
     <div class="note">Historical quarters show <span class="actual">actual ATE / MAI segment revenue</span> from DART quarterly reports (margins from stockanalysis.com). For history, <span class="actual">base / sub-threshold</span> = ATE − order-book contracts (absorbs ±1-quarter delivery-timing slippage). Modeled quarters (Q2'26+) = order-book contracts + base-ATE + MAI, each editable above. Opex is held fixed (it barely moves with revenue — that's the operating leverage); only gross margin is a %.</div>
   </div>
 
+  <!-- Controlling-shareholder ownership -->
+  <div class="panel">
+    <div class="panel-h">
+      <div class="t">Controlling-shareholder ownership over time<span class="sub">넥스턴앤롤코리아 (최대주주) · DART 대량보유 &amp; 임원 소유상황 filings</span></div>
+    </div>
+    <div class="chart-box"><div class="cw" style="height:250px"><canvas id="ownChart"></canvas></div></div>
+    <div class="tbl-wrap" style="max-height:none"><table id="ownTbl"></table></div>
+    <div class="note" id="ownNote"></div>
+  </div>
+
   <!-- Data table -->
   <div class="panel">
     <div class="panel-h">
@@ -262,7 +272,30 @@ const ACTUALS = {
 };
 
 /* Derived-column assumptions (edit freely) */
-const CFG = { annualRevenueBn:50.8, marketCapBn:226, sharesM:4.5, netMargin:0.176 };
+/* sharesM: ~5.09M shares outstanding — implied by controlling holder Nexturn's 2,056,631
+   shares = 40.40% (DART 대량보유, 2026-04-09). Reflects the 16:1 reverse split (무상감자,
+   2025-07-01) and the 2026-04 3rd-party rights issue. Prior 4.5M was the pre-rights-issue
+   post-split count. May rise further with pending June-2026 corporate actions. */
+const CFG = { annualRevenueBn:50.8, marketCapBn:226, sharesM:5.09, netMargin:0.176 };
+
+/* ===================== ownership (DART 대량보유 + 임원 소유상황 filings) =====================
+   Controlling shareholder accumulation over time. % is the clean cross-split metric — the
+   16:1 무상감자 on 2025-07-01 cut every holder's share count ~16x but left ownership % intact.
+   Entity renamed 넥스턴바이오사이언스 → 넥스턴앤롤코리아 (same 사업자번호 135-81-39760). */
+const OWNERSHIP = {
+  holder:"넥스턴앤롤코리아 (Nexturn & Roll Korea)", regNo:"135-81-39760",
+  relation:"최대주주 (controlling shareholder)",
+  events:[
+    { date:"2025-04-21", stake:29.39, shares:19644835,
+      event:"Pre-conversion holding", note:"held largely as 제8·9회 사모 전환사채 (convertible bonds)" },
+    { date:"2025-05-02", stake:32.32, shares:23175313,
+      event:"CB → equity conversion", note:"converted 제8·9회 전환사채 into shares @ ₩656–670" },
+    { date:"2025-07-01", stake:32.32, shares:1448457,
+      event:"16:1 reverse split (무상감자)", note:"free capital reduction for financial restructuring — share count ÷16, stake % unchanged" },
+    { date:"2026-04-09", stake:40.40, shares:2056631,
+      event:"3rd-party rights issue (제3자배정 유상증자)", note:"subscribed 608,174 new shares @ ₩11,181 → total shares ≈ 5.09M" },
+  ]
+};
 
 /* ===================== helpers ===================== */
 const fmt=(n,d=1)=> (n==null||isNaN(n))?"–":n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
@@ -295,7 +328,8 @@ const kpis=[
   {k:"China-localization", v:fmt(totalC)+" bn", s:(totalC/total*100).toFixed(0)+"% of book"},
   {k:"Korea-HBM",          v:fmt(totalK)+" bn", s:(totalK/total*100).toFixed(0)+"% of book"},
   {k:"vs FY25 revenue",    v:(total/CFG.annualRevenueBn*100).toFixed(0)+"%", s:"of "+fmt(CFG.annualRevenueBn)+" bn KRW"},
-  {k:"Contracts logged",   v:String(n),         s:"DART filings"},
+  {k:"Controlling shareholder", v:OWNERSHIP.events[OWNERSHIP.events.length-1].stake.toFixed(1)+"%",
+     s:"넥스턴앤롤코리아 · +"+(OWNERSHIP.events[OWNERSHIP.events.length-1].stake-OWNERSHIP.events[1].stake).toFixed(1)+"pt since '25"},
 ];
 document.getElementById("kpis").innerHTML=kpis.map(o=>
   `<div class="kpi"><div class="k">${o.k}</div><div class="v">${o.v}</div><div class="s">${o.s}</div></div>`).join("");
@@ -559,6 +593,44 @@ function renderMem(){
     `<td style="border-top:1px solid var(--border);padding:5px 9px"><b>${fmt(T)}</b> bn</td><td style="border-top:1px solid var(--border)"></td></tr></tbody></table>`;
 }
 
+/* ===================== controlling-shareholder ownership (static) ===================== */
+function renderOwnership(){
+  const ev=OWNERSHIP.events;
+  const pts=ev.map(e=>({x:decYear(e.date),y:e.stake}));
+  new Chart(el("ownChart"),{type:"line",
+    data:{datasets:[{label:OWNERSHIP.holder,data:pts,
+      borderColor:C("--line-total"),backgroundColor:C("--line-china"),
+      borderWidth:2.5,pointRadius:5,pointHoverRadius:7,tension:0}]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"nearest",intersect:false},
+      plugins:{legend:{display:false},tooltip:{padding:9,callbacks:{
+        title:items=>ev[items[0].dataIndex].date+" — "+ev[items[0].dataIndex].event,
+        label:ctx=>"Stake: "+ev[ctx.dataIndex].stake.toFixed(2)+"%",
+        afterBody:items=>{const e=ev[items[0].dataIndex];
+          return ["Voting shares: "+e.shares.toLocaleString(),"",e.note];}}}},
+      scales:{x:{type:"linear",grid:{color:C("--grid")},
+          afterBuildTicks:a=>{a.ticks=qTicks(a.min,a.max);},
+          ticks:{callback:v=>decYearLabel(v),maxRotation:0,autoSkip:false,color:C("--muted"),font:{size:10}}},
+        y:{grid:{color:C("--grid")},suggestedMin:20,suggestedMax:45,
+          ticks:{callback:v=>v+"%",color:C("--muted"),font:{size:10}},
+          title:{display:true,text:"Ownership of Mirae (%)",color:C("--muted"),font:{size:10}}}}}
+  });
+  const head=["Date","Event","Voting shares","Stake %","Detail"];
+  let html="<thead><tr>"+head.map(h=>`<th>${h}</th>`).join("")+"</tr></thead><tbody>";
+  ev.forEach(e=>{ html+=`<tr><td>${e.date}</td>`+
+    `<td style="text-align:left;white-space:normal">${e.event}</td>`+
+    `<td>${e.shares.toLocaleString()}</td><td><b>${e.stake.toFixed(2)}%</b></td>`+
+    `<td style="text-align:left;white-space:normal;max-width:300px;font-size:11px;color:#555">${e.note}</td></tr>`; });
+  el("ownTbl").innerHTML=html+"</tbody>";
+  el("ownNote").innerHTML=
+    "Source: DART <b>주식등의 대량보유상황보고서</b> (5% rule) + <b>임원ㆍ주요주주 소유상황보고서</b> for "+
+    OWNERSHIP.holder+" ("+OWNERSHIP.relation+"). <b>Ownership % is the clean metric</b> — the "+
+    "16:1 무상감자 (2025-07-01) cut share counts ~16× but left stakes intact; the 2026-04 "+
+    "제3자배정 유상증자 lifted the stake to <b>40.40%</b> and implies <b>~5.09M shares</b> total "+
+    "(now the model's share count). Insider 김경태 is flat at ~0.28%. Holders below the 5% "+
+    "threshold aren't individually disclosed — for investor-category flow (외국인/기관/개인) use "+
+    "KRX 투자자별 거래실적, which is aggregate-by-type, not name-level.";
+}
+
 /* ===================== refresh orchestration ===================== */
 function refresh(){
   const byQ=recognized();
@@ -572,6 +644,7 @@ function refresh(){
 el("bySeg").onclick=()=>{recColorBy="segment";el("bySeg").classList.add("on");el("byMem").classList.remove("on");refresh(false);};
 el("byMem").onclick=()=>{recColorBy="memory";el("byMem").classList.add("on");el("bySeg").classList.remove("on");refresh(false);};
 renderMem();
+renderOwnership();
 refresh(true);
 </script>
 </body>
