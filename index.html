@@ -190,10 +190,25 @@
     <div class="note">Historical quarters show <span class="actual">actual ATE / MAI segment revenue</span> from DART quarterly reports (margins from stockanalysis.com). For history, <span class="actual">base / sub-threshold</span> = ATE − order-book contracts (absorbs ±1-quarter delivery-timing slippage). Modeled quarters (Q2'26+) = order-book contracts + base-ATE + MAI, each editable above. Opex is held fixed (it barely moves with revenue — that's the operating leverage); only gross margin is a %.</div>
   </div>
 
+  <!-- Secondary-market equity flows -->
+  <div class="panel">
+    <div class="panel-h">
+      <div class="t">Secondary-market equity flows<span class="sub">on-exchange net buying by investor type · Naver/KRX 025560</span></div>
+      <div class="ctrls">
+        <span style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">show</span>
+        <span class="btn on" id="flowCum">cumulative</span>
+        <span class="btn" id="flowDaily">daily</span>
+      </div>
+    </div>
+    <div class="chart-box"><div class="cw" style="height:300px"><canvas id="flowChart"></canvas></div></div>
+    <div class="legend" id="flowLegend"></div>
+    <div class="note" id="flowNote"></div>
+  </div>
+
   <!-- Controlling-shareholder ownership -->
   <div class="panel">
     <div class="panel-h">
-      <div class="t">Controlling-shareholder ownership over time<span class="sub">넥스턴앤롤코리아 (최대주주) · DART 대량보유 &amp; 임원 소유상황 filings</span></div>
+      <div class="t">Controlling-shareholder ownership over time<span class="sub">넥스턴앤롤코리아 (최대주주) · DART 대량보유 &amp; 임원 소유상황 filings · <b>primary-market / registered</b></span></div>
     </div>
     <div class="chart-box"><div class="cw" style="height:250px"><canvas id="ownChart"></canvas></div></div>
     <div class="tbl-wrap" style="max-height:none"><table id="ownTbl"></table></div>
@@ -296,6 +311,155 @@ const OWNERSHIP = {
   ]
 };
 
+/* ===================== secondary-market equity flows (Naver 025560) =====================
+   On-exchange net trading by investor type — the actual buying/selling in the market, distinct
+   from the registered-holder ownership above. Source: finance.naver.com/item/frgn.naver?code=025560
+   (refresh via update_flows.py). Row = [date, close(KRW), instNetShares, frgnNetShares,
+   frgnHoldShares, frgnPct]. Naver reports 기관(institution) & 외국인(foreign) net share flow + foreign
+   ownership %; 개인(retail) is the residual and not separately reported. */
+const FLOWS = [
+  ["2025-12-05",13260,28,-2939,45722,1.02],
+  ["2025-12-08",13550,-1,1444,48716,1.09],
+  ["2025-12-09",13350,-1,-12649,35189,0.79],
+  ["2025-12-10",13090,2,-4459,30225,0.67],
+  ["2025-12-11",13040,72,3207,33587,0.75],
+  ["2025-12-12",12910,-1,845,34280,0.76],
+  ["2025-12-15",13040,0,-5068,30342,0.68],
+  ["2025-12-16",12780,0,-3686,26749,0.6],
+  ["2025-12-17",12790,0,3814,29200,0.65],
+  ["2025-12-18",12520,0,-4852,24956,0.56],
+  ["2025-12-19",12720,0,1854,26270,0.59],
+  ["2025-12-22",13290,-9,7719,35994,0.8],
+  ["2025-12-23",13100,-3,-10563,28392,0.63],
+  ["2025-12-24",12870,0,-2615,25485,0.57],
+  ["2025-12-26",13260,0,9740,33728,0.75],
+  ["2025-12-29",13700,-7,15055,49099,1.1],
+  ["2025-12-30",13780,0,-1898,46595,1.04],
+  ["2026-01-02",14290,-2,22944,70966,1.58],
+  ["2026-01-05",14090,0,-4287,62848,1.4],
+  ["2026-01-06",13230,-3,-15375,46399,1.04],
+  ["2026-01-07",12970,-3,-19084,27177,0.61],
+  ["2026-01-08",12450,-2,-8862,18279,0.41],
+  ["2026-01-09",12160,0,-7035,11053,0.25],
+  ["2026-01-12",12480,0,1762,13218,0.29],
+  ["2026-01-13",12580,-1,-3597,9428,0.21],
+  ["2026-01-14",12360,0,-2889,6183,0.14],
+  ["2026-01-15",12270,-2,-6543,0,0.0],
+  ["2026-01-16",12370,0,-1230,106,0.0],
+  ["2026-01-19",13600,-2,42011,42837,0.96],
+  ["2026-01-20",13200,1,2953,44828,1.0],
+  ["2026-01-21",12710,0,-7183,37950,0.85],
+  ["2026-01-22",12910,1,-1107,36757,0.82],
+  ["2026-01-23",12800,0,-4551,32201,0.72],
+  ["2026-01-26",12970,12,10063,42277,0.94],
+  ["2026-01-27",12900,0,-11529,31037,0.69],
+  ["2026-01-28",13270,-1,21388,52139,1.16],
+  ["2026-01-29",13550,2,10644,62829,1.4],
+  ["2026-01-30",13170,1,-3116,59502,1.33],
+  ["2026-02-02",12540,3,-17958,41544,0.93],
+  ["2026-02-03",13530,0,25936,68070,1.52],
+  ["2026-02-04",13650,2349,15641,83894,1.87],
+  ["2026-02-05",13120,1,-4118,80081,1.79],
+  ["2026-02-06",12920,-1,-8456,70862,1.58],
+  ["2026-02-09",13840,0,35818,109233,2.44],
+  ["2026-02-10",14250,-30,-45,111701,2.49],
+  ["2026-02-11",15430,61,28993,142045,3.17],
+  ["2026-02-12",14940,-2,-9707,131338,2.93],
+  ["2026-02-13",14650,0,-130,130393,2.91],
+  ["2026-02-19",15250,0,-1384,130443,2.91],
+  ["2026-02-20",15050,6,-5261,125186,2.79],
+  ["2026-02-23",15220,1,14272,139447,3.11],
+  ["2026-02-24",14970,0,3663,143107,3.19],
+  ["2026-02-25",15100,3,-7952,135198,3.02],
+  ["2026-02-26",15170,6,-422,134876,3.01],
+  ["2026-02-27",14830,3,809,135651,3.03],
+  ["2026-03-03",14400,1821,10343,145179,3.24],
+  ["2026-03-04",12070,0,2633,148273,3.31],
+  ["2026-03-05",13900,4,12311,161069,3.59],
+  ["2026-03-06",14080,0,14267,174944,3.9],
+  ["2026-03-09",12820,-4770,-23239,152211,3.4],
+  ["2026-03-10",13590,0,7665,160991,3.59],
+  ["2026-03-11",13800,-209,5902,167304,3.73],
+  ["2026-03-12",13710,1489,-4513,162792,3.63],
+  ["2026-03-13",13640,0,2394,162807,3.63],
+  ["2026-03-16",13310,0,399,162291,3.62],
+  ["2026-03-17",13540,0,-3219,158562,3.54],
+  ["2026-03-18",13620,0,-12514,146523,3.27],
+  ["2026-03-19",13120,767,-1535,145403,3.24],
+  ["2026-03-20",13700,0,6676,154516,3.45],
+  ["2026-03-23",13130,0,-9389,145473,3.25],
+  ["2026-03-24",13520,0,8503,152657,3.41],
+  ["2026-03-25",13960,0,18923,172377,3.85],
+  ["2026-03-26",13360,-62,-19429,151755,3.39],
+  ["2026-03-27",13470,0,-2922,148624,3.32],
+  ["2026-03-30",13020,1921,-4082,143047,3.19],
+  ["2026-03-31",12540,5,-10060,132760,2.96],
+  ["2026-04-01",13410,-4173,20282,154300,3.44],
+  ["2026-04-02",13000,0,-13062,141010,3.15],
+  ["2026-04-03",13080,-293,-2914,138340,3.09],
+  ["2026-04-06",12850,1,-4431,133487,2.98],
+  ["2026-04-07",12800,0,1451,135069,3.01],
+  ["2026-04-08",13540,0,17564,151312,3.38],
+  ["2026-04-09",13250,-3,-1959,149101,3.33],
+  ["2026-04-10",13610,14,8085,157658,3.52],
+  ["2026-04-13",13350,0,-2160,155450,3.47],
+  ["2026-04-14",13770,0,4409,161926,3.61],
+  ["2026-04-15",14240,-10,9507,172665,3.85],
+  ["2026-04-16",14100,100,12319,184973,4.13],
+  ["2026-04-17",14120,0,3898,189670,4.23],
+  ["2026-04-20",14210,0,7194,197329,4.4],
+  ["2026-04-21",14390,-6,-1166,196762,4.39],
+  ["2026-04-22",14450,1,6276,202276,4.51],
+  ["2026-04-23",15190,8689,7887,211303,4.71],
+  ["2026-04-24",16670,-21,49733,259584,5.79],
+  ["2026-04-27",16700,2,-52012,209246,4.67],
+  ["2026-04-28",16290,1,-795,208160,4.64],
+  ["2026-04-29",16020,-605,5876,212999,4.75],
+  ["2026-04-30",15450,-2088,12410,225149,4.42],
+  ["2026-05-04",16000,-65,-4089,221743,4.36],
+  ["2026-05-06",16550,-3,13856,236978,4.66],
+  ["2026-05-07",18300,710,20768,256950,5.05],
+  ["2026-05-08",17730,-123,-3109,254564,5.0],
+  ["2026-05-11",17580,-16,-11017,243317,4.78],
+  ["2026-05-12",16810,1160,12011,253316,4.98],
+  ["2026-05-13",21850,-422,-22196,233093,4.58],
+  ["2026-05-14",21700,-37,-3735,224449,4.41],
+  ["2026-05-15",19210,-4741,8254,236456,4.65],
+  ["2026-05-18",24950,50854,-10720,228951,4.5],
+  ["2026-05-19",25850,76725,-69262,161758,3.18],
+  ["2026-05-20",26600,21151,-10451,179628,3.53],
+  ["2026-05-21",27600,6081,13769,193498,3.8],
+  ["2026-05-22",35850,11314,148269,333447,6.55],
+  ["2026-05-26",35500,-5103,-59575,273544,5.37],
+  ["2026-05-27",37600,7355,-56365,224353,4.41],
+  ["2026-05-28",38700,-16,-8983,215043,4.22],
+  ["2026-05-29",37000,-6,751,216011,4.24],
+  ["2026-06-01",33000,35270,16101,232176,4.56],
+  ["2026-06-02",28500,1906,9314,240178,4.72],
+  ["2026-06-04",32150,22742,-3356,236615,4.65],
+  ["2026-06-05",30500,-8613,3333,239965,4.71],
+  ["2026-06-08",31300,83,2422,242373,4.76],
+  ["2026-06-09",37300,16833,-3073,239358,4.7],
+  ["2026-06-10",36150,1728,-18328,219783,4.32],
+  ["2026-06-11",39200,16847,34207,258315,5.07],
+  ["2026-06-12",47250,21328,75499,327601,6.44],
+  ["2026-06-15",43800,12039,-20970,313592,6.16],
+  ["2026-06-16",46200,4731,-1321,312786,6.15],
+  ["2026-06-17",44200,2223,-5688,306972,6.03],
+  ["2026-06-18",43100,2179,15714,328538,6.45],
+  ["2026-06-19",42100,-1136,3973,332378,6.53],
+  ["2026-06-22",47450,2375,44596,377281,7.41],
+  ["2026-06-23",44100,-546,-2206,374529,7.36],
+  ["2026-06-24",43000,5,-11828,366834,7.21],
+  ["2026-06-25",40900,9068,10094,379864,7.46],
+  ["2026-06-26",42600,10137,21894,402974,7.92],
+  ["2026-06-29",46400,904,16534,411494,8.08],
+  ["2026-06-30",60300,3921,44998,455850,8.96],
+  ["2026-07-01",58500,-1017,72685,522949,10.27],
+  ["2026-07-02",47900,-2326,-30816,483447,9.5],
+  ["2026-07-03",45700,-1533,-13156,470291,9.24],
+];
+
 /* ===================== helpers ===================== */
 const fmt=(n,d=1)=> (n==null||isNaN(n))?"–":n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
 function decYear(s){const dt=new Date(s+"T00:00:00Z");const a=Date.UTC(dt.getUTCFullYear(),0,1),b=Date.UTC(dt.getUTCFullYear()+1,0,1);return dt.getUTCFullYear()+(dt-a)/(b-a);}
@@ -329,6 +493,8 @@ const kpis=[
   {k:"vs FY25 revenue",    v:(total/CFG.annualRevenueBn*100).toFixed(0)+"%", s:"of "+fmt(CFG.annualRevenueBn)+" bn KRW"},
   {k:"Controlling shareholder", v:OWNERSHIP.events[OWNERSHIP.events.length-1].stake.toFixed(1)+"%",
      s:"넥스턴앤롤코리아 · +"+(OWNERSHIP.events[OWNERSHIP.events.length-1].stake-OWNERSHIP.events[1].stake).toFixed(1)+"pt since '25"},
+  {k:"Foreign ownership",  v:FLOWS[FLOWS.length-1][5].toFixed(1)+"%",
+     s:"was "+FLOWS[0][5].toFixed(1)+"% on "+FLOWS[0][0].slice(2)+" (secondary-mkt)"},
 ];
 document.getElementById("kpis").innerHTML=kpis.map(o=>
   `<div class="kpi"><div class="k">${o.k}</div><div class="v">${o.v}</div><div class="s">${o.s}</div></div>`).join("");
@@ -592,6 +758,57 @@ function renderMem(){
     `<td style="border-top:1px solid var(--border);padding:5px 9px"><b>${fmt(T)}</b> bn</td><td style="border-top:1px solid var(--border)"></td></tr></tbody></table>`;
 }
 
+/* ===================== secondary-market flows (interactive) ===================== */
+let flowChart, flowMode="cumulative";
+function renderFlows(){
+  const F=FLOWS.map(r=>({date:r[0],close:r[1],inst:r[2],frgn:r[3],pct:r[5]}));
+  let ci=0,cf=0;
+  F.forEach(d=>{ d.instV=d.inst*d.close/1e9; d.frgnV=d.frgn*d.close/1e9;
+    ci+=d.instV; cf+=d.frgnV; d.instCum=ci; d.frgnCum=cf; });
+  const cum = flowMode==="cumulative";
+  const labels=F.map(d=>d.date);
+  const rnd=v=>+v.toFixed(2);
+  const mkFrgn={label:"Foreign (외국인)",yAxisID:"y",type:cum?"line":"bar",
+    data:F.map(d=>rnd(cum?d.frgnCum:d.frgnV)),
+    borderColor:C("--line-total"),backgroundColor:C("--line-total"),borderWidth:2,pointRadius:0,pointHoverRadius:4,tension:.1};
+  const mkInst={label:"Institution (기관)",yAxisID:"y",type:cum?"line":"bar",
+    data:F.map(d=>rnd(cum?d.instCum:d.instV)),
+    borderColor:C("--bar-china"),backgroundColor:C("--bar-china"),borderWidth:2,pointRadius:0,pointHoverRadius:4,tension:.1};
+  const mkPct={label:"Foreign ownership %",yAxisID:"y1",type:"line",
+    data:F.map(d=>d.pct),borderColor:C("--line-china"),backgroundColor:C("--line-china"),
+    borderWidth:1.5,borderDash:[5,3],pointRadius:0,pointHoverRadius:4,tension:.1};
+  const opts={responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+    plugins:{legend:{display:false},tooltip:{padding:9,filter:i=>i.parsed.y!==0,callbacks:{
+      title:items=>F[items[0].dataIndex].date,
+      label:ctx=>{const d=F[ctx.dataIndex];
+        if(ctx.dataset.yAxisID==="y1") return "Foreign ownership: "+d.pct.toFixed(2)+"%";
+        const isF=ctx.dataset.label.charAt(0)==="F";
+        const v=cum?(isF?d.frgnCum:d.instCum):(isF?d.frgnV:d.instV);
+        const sh=isF?d.frgn:d.inst;
+        return ctx.dataset.label+": "+(v>=0?"+":"")+fmt(v,2)+" bn"+(cum?" cum":"")+"  ("+(sh>=0?"+":"")+sh.toLocaleString()+" sh)";}}}},
+    scales:{x:{stacked:!cum,grid:{display:false},
+        ticks:{maxRotation:0,autoSkip:false,color:C("--muted"),font:{size:10},
+          callback:(val,idx)=>(idx===0||F[idx-1].date.slice(0,7)!==F[idx].date.slice(0,7))
+            ? decYearLabel(decYear(F[idx].date)) : ""}},
+      y:{position:"left",stacked:!cum,grid:{color:C("--grid")},ticks:{color:C("--muted"),font:{size:10}},
+        title:{display:true,text:(cum?"Cumulative":"Daily")+" net buying (bn KRW)",color:C("--muted"),font:{size:10}}},
+      y1:{position:"right",beginAtZero:true,grid:{display:false},ticks:{callback:v=>v+"%",color:C("--muted"),font:{size:10}},
+        title:{display:true,text:"Foreign ownership %",color:C("--muted"),font:{size:10}}}}};
+  if(flowChart) flowChart.destroy();
+  flowChart=new Chart(el("flowChart"),{type:"bar",data:{labels,datasets:[mkFrgn,mkInst,mkPct]},options:opts});
+  el("flowLegend").innerHTML=[
+    ["--line-total","Foreign (외국인) net"],["--bar-china","Institution (기관) net"],["--line-china","Foreign ownership %"]
+  ].map(([c,l])=>`<span><i class="swatch" style="background:${C(c)}"></i>${l}</span>`).join("");
+  const last=F[F.length-1];
+  el("flowNote").innerHTML="On-exchange net buying since "+F[0].date+". Over the window "+
+    "<b>foreigners net "+(cf>=0?"bought ":"sold ")+fmt(Math.abs(cf),1)+" bn KRW</b> and institutions net "+
+    (ci>=0?"bought ":"sold ")+fmt(Math.abs(ci),1)+" bn — foreign ownership climbed from "+F[0].pct.toFixed(1)+
+    "% to <b>"+last.pct.toFixed(1)+"%</b>. Retail (개인) is the residual, not separately broken out by Naver. "+
+    "Value ≈ net shares × close (approx). This is on-exchange <b>flow</b> — distinct from the registered-holder ownership below.";
+}
+el("flowCum").onclick=()=>{flowMode="cumulative";el("flowCum").classList.add("on");el("flowDaily").classList.remove("on");renderFlows();};
+el("flowDaily").onclick=()=>{flowMode="daily";el("flowDaily").classList.add("on");el("flowCum").classList.remove("on");renderFlows();};
+
 /* ===================== controlling-shareholder ownership (static) ===================== */
 function renderOwnership(){
   const ev=OWNERSHIP.events;
@@ -643,6 +860,7 @@ function refresh(){
 el("bySeg").onclick=()=>{recColorBy="segment";el("bySeg").classList.add("on");el("byMem").classList.remove("on");refresh(false);};
 el("byMem").onclick=()=>{recColorBy="memory";el("byMem").classList.add("on");el("bySeg").classList.remove("on");refresh(false);};
 renderMem();
+renderFlows();
 renderOwnership();
 refresh(true);
 </script>
