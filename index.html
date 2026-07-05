@@ -272,11 +272,10 @@ const ACTUALS = {
 };
 
 /* Derived-column assumptions (edit freely) */
-/* sharesM: ~5.09M shares outstanding — implied by controlling holder Nexturn's 2,056,631
-   shares = 40.40% (DART 대량보유, 2026-04-09). Reflects the 16:1 reverse split (무상감자,
-   2025-07-01) and the 2026-04 3rd-party rights issue. Prior 4.5M was the pre-rights-issue
-   post-split count. May rise further with pending June-2026 corporate actions. */
-const CFG = { annualRevenueBn:50.8, marketCapBn:226, sharesM:5.09, netMargin:0.176 };
+/* sharesM: 4.5M shares outstanding (post 16:1 무상감자, 2025-07-01). Note: Nexturn's
+   2,056,631 sh = 40.40% (DART 대량보유, 2026-04-09) would imply ~5.09M — the gap is likely
+   treasury/uncounted rights-issue shares; using 4.5M as the authoritative outstanding count. */
+const CFG = { annualRevenueBn:50.8, marketCapBn:226, sharesM:4.5, netMargin:0.176 };
 
 /* ===================== ownership (DART 대량보유 + 임원 소유상황 filings) =====================
    Controlling shareholder accumulation over time. % is the clean cross-split metric — the
@@ -293,7 +292,7 @@ const OWNERSHIP = {
     { date:"2025-07-01", stake:32.32, shares:1448457,
       event:"16:1 reverse split (무상감자)", note:"free capital reduction for financial restructuring — share count ÷16, stake % unchanged" },
     { date:"2026-04-09", stake:40.40, shares:2056631,
-      event:"3rd-party rights issue (제3자배정 유상증자)", note:"subscribed 608,174 new shares @ ₩11,181 → total shares ≈ 5.09M" },
+      event:"3rd-party rights issue (제3자배정 유상증자)", note:"subscribed 608,174 new shares @ ₩11,181" },
   ]
 };
 
@@ -625,8 +624,8 @@ function renderOwnership(){
     "Source: DART <b>주식등의 대량보유상황보고서</b> (5% rule) + <b>임원ㆍ주요주주 소유상황보고서</b> for "+
     OWNERSHIP.holder+" ("+OWNERSHIP.relation+"). <b>Ownership % is the clean metric</b> — the "+
     "16:1 무상감자 (2025-07-01) cut share counts ~16× but left stakes intact; the 2026-04 "+
-    "제3자배정 유상증자 lifted the stake to <b>40.40%</b> and implies <b>~5.09M shares</b> total "+
-    "(now the model's share count). Insider 김경태 is flat at ~0.28%. Holders below the 5% "+
+    "제3자배정 유상증자 lifted the stake to <b>40.40%</b>. Model uses <b>4.5M shares</b> outstanding. "+
+    "Insider 김경태 is flat at ~0.28%. Holders below the 5% "+
     "threshold aren't individually disclosed — for investor-category flow (외국인/기관/개인) use "+
     "KRX 투자자별 거래실적, which is aggregate-by-type, not name-level.";
 }
