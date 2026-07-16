@@ -21,6 +21,11 @@
   .topbar h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px}
   .topbar .tag{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px}
   .updated{font-size:11px;color:var(--muted)}
+  .dcfbtn{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.5px;
+    text-transform:uppercase;text-decoration:none;color:var(--panel);
+    background:var(--accent);border:1px solid var(--accent);border-radius:6px;
+    padding:6px 11px;margin-bottom:5px;transition:opacity .15s}
+  .dcfbtn:hover{opacity:.82}
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
   .kpi{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:11px 13px}
   .kpi{display:flex;flex-direction:column}
@@ -81,7 +86,10 @@
       <h1>Mirae Corp · 025560.KS — Order Book &amp; Revenue Model</h1>
       <div class="tag">Korea / Order Flow · compiled from DART filings</div>
     </div>
-    <div class="updated" id="updated"></div>
+    <div style="text-align:right">
+      <a class="dcfbtn" href="mirae_dcf.xlsx" download>&#8595;&nbsp; DCF workbook (.xlsx)</a>
+      <div class="updated" id="updated"></div>
+    </div>
   </div>
 
   <div class="kpis" id="kpis"></div>
