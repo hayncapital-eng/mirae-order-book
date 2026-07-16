@@ -12,6 +12,7 @@ Uses stdlib urllib to match update_from_dart.py.
 import argparse
 import json
 import os
+import subprocess
 import sys
 import urllib.parse
 import urllib.request
@@ -63,10 +64,42 @@ WANTED = {
 
 
 def need_key():
+    """Key from macOS Keychain, else env var.
+
+    Keychain is preferred: the key never lands in the repo, in shell history, or
+    in a dotfile. Store it once with
+
+        security add-generic-password -a "$USER" -s opendart-mirae -w '<YOUR_KEY>'
+
+    and this finds it automatically thereafter. `OPENDART_API_KEY=... python3 ...`
+    still works as a fallback (e.g. CI), but note that form does leave the key in
+    your shell history.
+    """
     k = os.environ.get("OPENDART_API_KEY")
-    if not k:
-        sys.exit("ERROR: set OPENDART_API_KEY (free key from https://opendart.fss.or.kr).")
-    return k
+    if k:
+        return k
+    try:
+        k = subprocess.run(
+            ["security", "find-generic-password", "-a", os.environ.get("USER", ""),
+             "-s", "opendart-mirae", "-w"],
+            capture_output=True, text=True, timeout=10,
+        ).stdout.strip()
+        if k:
+            return k
+    except (OSError, subprocess.SubprocessError):
+        pass
+    sys.exit(
+        "ERROR: no OpenDART key found.\n"
+        "  Store it in the Keychain (recommended):\n"
+        "    security add-generic-password -a \"$USER\" -s opendart-mirae -w '<YOUR_KEY>'\n"
+        "  or pass it for one run:\n"
+        "    OPENDART_API_KEY=<YOUR_KEY> python3 dart_financials.py --years 2024 2025\n"
+        "  Free key: https://opendart.fss.or.kr (인증키 신청/관리)\n"
+        "\n"
+        "  NOTE: you may not need this at all — dart_fetch.py reads filing bodies,\n"
+        "  financial statements and notes with NO key. The API is only worth the\n"
+        "  setup for structured multi-period pulls."
+    )
 
 
 def _get(url):
