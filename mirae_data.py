@@ -40,12 +40,49 @@ def _extract_literal(src, name, open_ch, close_ch):
 
 
 def _js_to_json(lit):
-    lit = re.sub(r"/\*.*?\*/", "", lit, flags=re.S)      # block comments
-    lit = re.sub(r"//[^\n]*", "", lit)                    # line comments
-    lit = re.sub(r'(?<![\w"])([A-Za-z_$][\w$]*)\s*:', r'"\1":', lit)  # quote keys
-    lit = lit.replace("'", '"')
-    lit = re.sub(r",\s*([}\]])", r"\1", lit)              # trailing commas
-    return json.loads(lit)
+    """Normalise a JS object/array literal to JSON.
+
+    String-aware on purpose: an earlier version blanket-replaced ' with " to
+    convert JS single-quoted strings, which corrupts apostrophes inside
+    double-quoted values (terms text like "moves Q1'26->Q2'26" became a syntax
+    error). So we scan, and only rewrite OUTSIDE double-quoted strings.
+    """
+    def fix(code):
+        """Transforms applied ONLY to non-string spans."""
+        code = re.sub(r'(?<![\w"])([A-Za-z_$][\w$]*)\s*:', r'"\1":', code)  # bare keys
+        code = re.sub(r",\s*([}\]])", r"\1", code)                          # trailing commas
+        return code
+
+    parts, buf, i, n = [], [], 0, len(lit)
+    while i < n:
+        c = lit[i]
+        if c == '"':                        # string literal — preserve byte-for-byte
+            j = i + 1
+            while j < n:
+                if lit[j] == "\\":
+                    j += 2
+                    continue
+                if lit[j] == '"':
+                    break
+                j += 1
+            if j >= n:
+                raise ValueError("unterminated string near: %r" % lit[i:i + 60])
+            parts.append(fix("".join(buf))); buf = []
+            parts.append(lit[i:j + 1])
+            i = j + 1
+            continue
+        if lit.startswith("/*", i):         # block comment
+            j = lit.find("*/", i)
+            i = n if j < 0 else j + 2
+            continue
+        if lit.startswith("//", i):         # line comment
+            j = lit.find("\n", i)
+            i = n if j < 0 else j
+            continue
+        buf.append(c)
+        i += 1
+    parts.append(fix("".join(buf)))
+    return json.loads("".join(parts))
 
 
 def _read_index():
