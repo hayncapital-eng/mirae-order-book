@@ -287,10 +287,25 @@ const ACTUALS = {
 };
 
 /* Derived-column assumptions (edit freely) */
-/* sharesM: 4.5M shares outstanding (post 16:1 무상감자, 2025-07-01). Note: Nexturn's
-   2,056,631 sh = 40.40% (DART 대량보유, 2026-04-09) would imply ~5.09M — the gap is likely
-   treasury/uncounted rights-issue shares; using 4.5M as the authoritative outstanding count. */
-const CFG = { annualRevenueBn:50.8, marketCapBn:226, sharesM:4.5, netMargin:0.176 };
+/* sharesM — full DART-sourced chain (supersedes the earlier 4.5M; that figure was the
+   2025-12-31 issued count and went stale on two 2026 events):
+     4,482,654   issued at 2025-12-31 (사업보고서 '주식의 총수', post 16:1 무상감자)
+   +   608,174   제3자배정 유상증자, KRW 6.80bn @ 11,181 — PAID 2026-04-09 (rcp 20260409800963)
+   = 5,090,828   pre-split issued
+   x 5           액면분할 500원 -> 100원, effective 2026-07-09 (rcp 20260511800375)
+   = 25,454,140  CURRENTLY ISSUED
+   + 2,324,538   제3자배정 유상증자 to 로아앤코홀딩스 (최대주주 특수관계자), KRW 5.20bn
+                 @ 2,237 post-split — payment due 2026-07-27, NOT YET CLOSED (rcp 20260709000380)
+   = 27,778,678  FULLY DILUTED  <- sharesM below
+   This also resolves the old note's puzzle: Nexturn's 2,056,631 sh = 40.40% (대량보유,
+   2026-04-09) divides to exactly 5,090,828 — i.e. it was measured against the post-April
+   count, so the "~5.09M implied" reading was correct and 4.5M was the stale one.
+
+   marketCapBn: 27,778,678 x KRW 9,140 = 253.9bn. 9,140 = last traded price 45,700
+   (2026-07-03) / 5 for the split. NOTE: the stock is SUSPENDED 2026-07-07..07-24 for the
+   split (relisting 07-27), so 45,700 is the last real print, not a live quote. Refresh once
+   trading resumes. If you'd rather model pre-placement, use sharesM 25.45 / marketCapBn 232.7. */
+const CFG = { annualRevenueBn:50.8, marketCapBn:253.9, sharesM:27.778678, netMargin:0.176 };
 
 /* ===================== ownership (DART 대량보유 + 임원 소유상황 filings) =====================
    Controlling shareholder accumulation over time. % is the clean cross-split metric — the
